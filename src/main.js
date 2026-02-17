@@ -6,6 +6,23 @@ const { execFile } = require('child_process');
 let mainWindow;
 let ytmusic;
 
+function getYtDlpPath() {
+  const isWin = process.platform === 'win32';
+  const binName = isWin ? 'yt-dlp.exe' : 'yt-dlp';
+  const subDir = isWin ? 'win' : 'linux';
+
+  // In production: resources/bin/<platform>/yt-dlp
+  const bundled = path.join(process.resourcesPath, 'bin', subDir, binName);
+  if (fs.existsSync(bundled)) return bundled;
+
+  // In development: bin/<platform>/yt-dlp
+  const dev = path.join(__dirname, '..', 'bin', subDir, binName);
+  if (fs.existsSync(dev)) return dev;
+
+  // Fallback to system PATH
+  return binName;
+}
+
 async function initYTMusic() {
   const YTMusic = (await import('ytmusic-api')).default;
   ytmusic = new YTMusic();
@@ -204,7 +221,7 @@ ipcMain.handle('yt:searchArtists', async (_event, query) => {
 ipcMain.handle('yt:getStreamUrl', async (_event, videoUrl, quality) => {
   const fmt = quality === 'worstaudio' ? 'worstaudio' : 'bestaudio';
   return new Promise((resolve, reject) => {
-    execFile('yt-dlp', [
+    execFile(getYtDlpPath(), [
       '-f', fmt,
       '--get-url',
       '--no-warnings',

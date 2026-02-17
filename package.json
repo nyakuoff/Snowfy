@@ -33,11 +33,17 @@
     "linux": {
       "target": ["AppImage"],
       "category": "Audio",
-      "icon": "assets/logo.png"
+      "icon": "assets/logo.png",
+      "extraResources": [
+        { "from": "bin/linux", "to": "bin/linux", "filter": ["yt-dlp"] }
+      ]
     },
     "win": {
       "target": ["nsis"],
-      "icon": "assets/logo.ico"
+      "icon": "assets/logo.ico",
+      "extraResources": [
+        { "from": "bin/win", "to": "bin/win", "filter": ["yt-dlp.exe"] }
+      ]
     },
     "files": [
       "src/**/*",
