@@ -260,6 +260,9 @@ html, body {
   color: var(--text-primary);
   letter-spacing: 0.5px;
 }
+.app-logo-icon {
+  pointer-events: none;
+}
 
 .titlebar-controls {
   display: flex;

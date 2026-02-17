@@ -5,7 +5,8 @@
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
-    "dev": "electron . --dev"
+    "dev": "electron . --dev",
+    "build": "electron-builder --linux"
   },
   "keywords": [
     "music",
@@ -17,9 +18,24 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "electron": "^33.0.0"
+    "electron": "^33.0.0",
+    "electron-builder": "^26.7.0"
   },
   "dependencies": {
     "ytmusic-api": "^5.3.1"
+  },
+  "build": {
+    "appId": "com.nyaku.snowfy",
+    "productName": "Snowfy",
+    "icon": "assets/logo.png",
+    "linux": {
+      "target": ["AppImage"],
+      "category": "Audio",
+      "icon": "assets/logo.png"
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*"
+    ]
   }
 }

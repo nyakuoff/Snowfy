@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, session, shell, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, session, shell, dialog, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { execFile } = require('child_process');
@@ -63,7 +63,7 @@ function createWindow() {
       nodeIntegration: false,
       sandbox: false
     },
-    icon: path.join(__dirname, '..', 'assets', 'icon.png')
+    icon: nativeImage.createFromPath(path.join(__dirname, '..', 'assets', 'logo.ico'))
   });
 
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));

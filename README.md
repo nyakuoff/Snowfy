@@ -2,6 +2,9 @@
 
 A desktop music player built with Electron that streams audio from YouTube Music. Clean UI, no accounts, no ads.
 
+> [!WARNING]
+> This is an **early version** of the app. It's still a work in progress and may contain bugs or unfinished features. Use at your own discretion.
+
 ## Features
 
 - **Search** — Find songs, artists, and albums via YouTube Music
@@ -53,6 +56,14 @@ npm start
 - **Electron** — Desktop framework
 - **ytmusic-api** — YouTube Music metadata
 - **yt-dlp** — Audio stream extraction
+
+## Roadmap
+
+- [ ] Song recommendations
+- [ ] Artist recommendations
+- [ ] Smart queue — auto-fills with similar songs when not playing an album/playlist or the queue runs out
+- [ ] Lyrics page with synced lyrics (Spotify-like)
+- [ ] Drag and drop songs into playlists
 
 ## Legal
 
