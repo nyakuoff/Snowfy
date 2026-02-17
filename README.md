@@ -60,7 +60,6 @@ npm start
 ## Roadmap
 
 - [x] Song recommendations
-- [ ] Artist recommendations
 - [x] Smart queue — auto-fills with similar songs when not playing an album/playlist and the queue runs out
 - [x] Lyrics page with synced lyrics (Spotify-like)
 - [x] Drag and drop songs into playlists

@@ -30,6 +30,7 @@
     autoplay: false,
     audioQuality: 'bestaudio',
     animations: true,
+    effects: true,
     theme: 'dark'
   };
 
@@ -45,6 +46,7 @@
       autoplay: state.autoplay,
       audioQuality: state.audioQuality,
       animations: state.animations,
+      effects: state.effects,
       theme: state.theme
     }));
   }
@@ -69,6 +71,7 @@
         state.autoplay = saved.autoplay ?? false;
         state.audioQuality = saved.audioQuality || 'bestaudio';
         state.animations = saved.animations ?? true;
+        state.effects = saved.effects ?? true;
         state.theme = saved.theme || 'dark';
       }
     } catch (_) {}
@@ -81,9 +84,19 @@
   }
 
   function switchView(name) {
+    const targetView = $(`#view-${name}`);
+    const alreadyActive = state.currentView === name && targetView && targetView.classList.contains('active');
+
     state.currentView = name;
     views.forEach(v => v.classList.toggle('active', v.id === `view-${name}`));
     navBtns.forEach(b => b.classList.toggle('active', b.dataset.view === name));
+
+    // Re-trigger page enter animation when switching within the same view (e.g. playlist → playlist)
+    if (alreadyActive && targetView && state.animations) {
+      targetView.style.animation = 'none';
+      targetView.offsetHeight; // force reflow
+      targetView.style.animation = '';
+    }
 
     if (name === 'search') {
       setTimeout(() => $('#search-input').focus(), 100);
@@ -287,26 +300,26 @@
       playlistSection = `
         <div class="context-menu-divider"></div>
         <div class="context-menu-item context-menu-has-sub" data-action="none">
-          <span>＋ Add to playlist</span>
+          <span>Add to playlist</span>
           <span class="sub-arrow">▸</span>
           <div class="context-submenu">${subItems}</div>
         </div>`;
     } else if (state.playlists.length) {
       const inlineItems = state.playlists.map(p =>
-        `<div class="context-menu-item" data-action="add-to-playlist" data-pid="${p.id}">＋ ${escapeHtml(p.name)}</div>`
+        `<div class="context-menu-item" data-action="add-to-playlist" data-pid="${p.id}">${escapeHtml(p.name)}</div>`
       ).join('');
       playlistSection = '<div class="context-menu-divider"></div>' + inlineItems;
     }
 
     menu.innerHTML = `
-      <div class="context-menu-item" data-action="play">▶ Play</div>
-      <div class="context-menu-item" data-action="play-next">⏭ Play Next</div>
-      <div class="context-menu-item" data-action="add-queue">＋ Add to Queue</div>
+      <div class="context-menu-item" data-action="play">Play</div>
+      <div class="context-menu-item" data-action="play-next">Play Next</div>
+      <div class="context-menu-item" data-action="add-queue">Add to Queue</div>
       <div class="context-menu-divider"></div>
-      <div class="context-menu-item" data-action="like">${isLiked ? '💚 Unlike' : '♡ Like'}</div>
+      <div class="context-menu-item" data-action="like">${isLiked ? 'Unlike' : 'Like'}</div>
       ${playlistSection}
       <div class="context-menu-divider"></div>
-      <div class="context-menu-item" data-action="open-yt">🌐 Open on YouTube</div>
+      <div class="context-menu-item" data-action="open-yt">Open on YouTube</div>
     `;
 
     document.body.appendChild(menu);
@@ -1104,17 +1117,17 @@
     const liked = state.likedSongs.some(t => t.id === track.id);
 
     menu.innerHTML = `
-      <div class="context-menu-item" data-action="play">▶ Play</div>
-      <div class="context-menu-item" data-action="play-next">⏭ Play Next</div>
-      <div class="context-menu-item" data-action="add-queue">＋ Add to Queue</div>
+      <div class="context-menu-item" data-action="play">Play</div>
+      <div class="context-menu-item" data-action="play-next">Play Next</div>
+      <div class="context-menu-item" data-action="add-queue">Add to Queue</div>
       <div class="context-menu-divider"></div>
-      <div class="context-menu-item" data-action="like">${liked ? '💚 Unlike' : '♡ Like'}</div>
+      <div class="context-menu-item" data-action="like">${liked ? 'Unlike' : 'Like'}</div>
       <div class="context-menu-divider"></div>
-      <div class="context-menu-item" data-action="remove">✖ Remove from ${isLiked ? 'Liked Songs' : 'playlist'}</div>
-      ${!isLiked && idx > 0 ? '<div class="context-menu-item" data-action="move-up">↑ Move up</div>' : ''}
-      ${!isLiked && idx < playlist.tracks.length - 1 ? '<div class="context-menu-item" data-action="move-down">↓ Move down</div>' : ''}
+      <div class="context-menu-item" data-action="remove">Remove from ${isLiked ? 'Liked Songs' : 'playlist'}</div>
+      ${!isLiked && idx > 0 ? '<div class="context-menu-item" data-action="move-up">Move up</div>' : ''}
+      ${!isLiked && idx < playlist.tracks.length - 1 ? '<div class="context-menu-item" data-action="move-down">Move down</div>' : ''}
       <div class="context-menu-divider"></div>
-      <div class="context-menu-item" data-action="open-yt">🌐 Open on YouTube</div>
+      <div class="context-menu-item" data-action="open-yt">Open on YouTube</div>
     `;
 
     document.body.appendChild(menu);
@@ -1257,11 +1270,25 @@
     } else {
       upNext.innerHTML = `<p style="color:var(--text-subdued);font-size:13px;">Queue is empty</p>`;
     }
+
+    // Right-click + drag on all queue items
+    const allQueueItems = $$('.queue-item[data-track-id]', document.getElementById('queue-panel'));
+    allQueueItems.forEach(item => {
+      const track = state.queue.find(t => t.id === item.dataset.trackId);
+      if (!track) return;
+      item.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        showContextMenu(e, track);
+      });
+      item.addEventListener('dragstart', (e) => {
+        startTrackDrag(e, track);
+      });
+    });
   }
 
   function renderQueueItem(track, isActive) {
     return `
-      <div class="queue-item ${isActive ? 'active' : ''}">
+      <div class="queue-item ${isActive ? 'active' : ''}" data-track-id="${track.id}" draggable="true">
         <img src="${escapeHtml(track.thumbnail)}" alt="" />
         <div class="queue-item-info">
           <div class="queue-item-title">${escapeHtml(track.title)}</div>
@@ -1311,6 +1338,11 @@
         const track = state.recentTracks.find(t => t.id === card.dataset.trackId);
         if (track) playFromList([track], 0);
       });
+      card.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        const track = state.recentTracks.find(t => t.id === card.dataset.trackId);
+        if (track) showContextMenu(e, track);
+      });
       card.addEventListener('dragstart', (e) => {
         const track = state.recentTracks.find(t => t.id === card.dataset.trackId);
         if (track) startTrackDrag(e, track);
@@ -1326,7 +1358,7 @@
       return;
     }
     container.innerHTML = picks.map(track => `
-      <div class="quick-pick-card" data-track-id="${track.id}">
+      <div class="quick-pick-card" data-track-id="${track.id}" draggable="true">
         <img src="${escapeHtml(track.thumbnail)}" alt="" />
         <span>${escapeHtml(track.title)}</span>
         <button class="qp-play" title="Play">
@@ -1339,6 +1371,15 @@
       card.addEventListener('click', () => {
         const track = state.recentTracks.find(t => t.id === card.dataset.trackId);
         if (track) playFromList([track], 0);
+      });
+      card.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        const track = state.recentTracks.find(t => t.id === card.dataset.trackId);
+        if (track) showContextMenu(e, track);
+      });
+      card.addEventListener('dragstart', (e) => {
+        const track = state.recentTracks.find(t => t.id === card.dataset.trackId);
+        if (track) startTrackDrag(e, track);
       });
     });
   }
@@ -1557,23 +1598,6 @@
 
     renderTrackList(tracksContainer, album.tracks, 'album');
 
-    tracksContainer.querySelectorAll('.track-row').forEach(row => {
-      row.addEventListener('click', () => {
-        const idx = parseInt(row.dataset.index);
-        playFromList(album.tracks, idx);
-      });
-      row.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        const idx = parseInt(row.dataset.index);
-        showContextMenu(e, album.tracks[idx]);
-      });
-      row.addEventListener('dragstart', (e) => {
-        const idx = parseInt(row.dataset.index);
-        const track = album.tracks[idx];
-        if (track) startTrackDrag(e, track);
-      });
-    });
-
     $('#btn-album-play-all').onclick = () => {
       if (album.tracks.length) playFromList(album.tracks, 0);
     };
@@ -1634,17 +1658,6 @@
     }
 
     renderTrackList(popularContainer, popular, 'artist-popular');
-    popularContainer.querySelectorAll('.track-row').forEach(row => {
-      row.addEventListener('click', () => {
-        const idx = parseInt(row.dataset.index);
-        playFromList(popular, idx);
-      });
-      row.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        const idx = parseInt(row.dataset.index);
-        showContextMenu(e, popular[idx]);
-      });
-    });
 
     // Discography: horizontal scrollable album cards with filter
     const allReleases = [
@@ -1677,13 +1690,8 @@
           const album = await window.snowfy.albumTracks(albumId);
           if (album && album.tracks.length) playFromList(album.tracks, 0);
         });
-        card.addEventListener('click', async () => {
-          if (meta && meta.type && meta.type !== 'Album') {
-            const album = await window.snowfy.albumTracks(albumId);
-            if (album && album.tracks.length) playFromList(album.tracks, 0);
-          } else {
-            showAlbumDetail(albumId, meta);
-          }
+        card.addEventListener('click', () => {
+          showAlbumDetail(albumId, meta);
         });
       });
     }
@@ -1999,11 +2007,14 @@
     const autoplayToggle = $('#setting-autoplay');
     const qualitySelect = $('#setting-quality');
     const animationsToggle = $('#setting-animations');
+    const effectsToggle = $('#setting-effects');
 
     autoplayToggle.checked = state.autoplay;
     qualitySelect.value = state.audioQuality;
     animationsToggle.checked = state.animations;
+    effectsToggle.checked = state.effects;
     document.documentElement.classList.toggle('no-animations', !state.animations);
+    document.documentElement.classList.toggle('no-effects', !state.effects);
 
     // Apply theme
     function applyTheme(theme) {
@@ -2043,6 +2054,12 @@
     animationsToggle.addEventListener('change', () => {
       state.animations = animationsToggle.checked;
       document.documentElement.classList.toggle('no-animations', !state.animations);
+      saveState();
+    });
+
+    effectsToggle.addEventListener('change', () => {
+      state.effects = effectsToggle.checked;
+      document.documentElement.classList.toggle('no-effects', !state.effects);
       saveState();
     });
 

@@ -6,7 +6,9 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
-    "build": "electron-builder --linux"
+    "build": "electron-builder --linux",
+    "build:win": "electron-builder --win",
+    "build:all": "electron-builder --linux --win"
   },
   "keywords": [
     "music",
@@ -32,6 +34,10 @@
       "target": ["AppImage"],
       "category": "Audio",
       "icon": "assets/logo.png"
+    },
+    "win": {
+      "target": ["nsis"],
+      "icon": "assets/logo.ico"
     },
     "files": [
       "src/**/*",

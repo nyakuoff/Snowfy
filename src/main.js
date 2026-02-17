@@ -13,7 +13,7 @@ async function initYTMusic() {
 }
 
 function formatDuration(seconds) {
-  if (!seconds || isNaN(seconds)) return '0:00';
+  if (seconds == null || isNaN(seconds) || seconds <= 0) return '';
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, '0')}`;
@@ -231,7 +231,7 @@ ipcMain.handle('yt:getUpNexts', async (_event, videoId) => {
         artist: r.artists || r.artist?.name || 'Unknown Artist',
         artistId: r.artist?.artistId || null,
         thumbnail: r.thumbnail || getSquareThumbnail(r.thumbnails || []),
-        duration: r.duration || '0:00',
+        duration: r.duration || '',
         durationMs: 0,
         url: `https://music.youtube.com/watch?v=${r.videoId}`
       }));
