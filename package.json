@@ -1,0 +1,25 @@
+{
+  "name": "snowfy",
+  "version": "1.0.0",
+  "description": "A Spotify-like desktop music player that streams from free sources",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev"
+  },
+  "keywords": [
+    "music",
+    "player",
+    "electron",
+    "youtube",
+    "streaming"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^33.0.0"
+  },
+  "dependencies": {
+    "ytmusic-api": "^5.3.1"
+  }
+}
