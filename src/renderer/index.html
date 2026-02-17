@@ -366,6 +366,9 @@
     </div>
 
     <div class="np-extras">
+      <button class="icon-btn" id="btn-lyrics" title="Lyrics">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+      </button>
       <button class="icon-btn" id="btn-queue" title="Queue">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h10v2H4v-2zm14-1v6l5-3-5-3z"/></svg>
       </button>
@@ -398,6 +401,21 @@
     <div class="queue-section">
       <h4>Up Next</h4>
       <div id="queue-up-next"></div>
+    </div>
+  </div>
+
+  <!-- ═══════ Lyrics Panel ═══════ -->
+  <div id="lyrics-panel" class="lyrics-panel hidden">
+    <div class="lyrics-header">
+      <h3>Lyrics</h3>
+      <button class="icon-btn" id="btn-close-lyrics">
+        <svg width="16" height="16" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="lyrics-body" id="lyrics-body">
+      <div class="lyrics-empty">
+        <p>Play a song to see lyrics</p>
+      </div>
     </div>
   </div>
 

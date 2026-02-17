@@ -241,6 +241,50 @@ ipcMain.handle('yt:getUpNexts', async (_event, videoId) => {
   }
 });
 
+// ─── Lyrics (LRCLIB) ───
+
+ipcMain.handle('lyrics:get', async (_event, trackName, artistName, albumName, durationSec) => {
+  try {
+    // Try exact match first if we have album + duration
+    if (albumName && durationSec) {
+      const exact = await fetchLrclib(`/api/get?${new URLSearchParams({
+        track_name: trackName,
+        artist_name: artistName,
+        album_name: albumName,
+        duration: String(Math.round(durationSec))
+      })}`);
+      if (exact && (exact.syncedLyrics || exact.plainLyrics)) {
+        return { synced: exact.syncedLyrics || null, plain: exact.plainLyrics || null };
+      }
+    }
+    // Fall back to search
+    const results = await fetchLrclib(`/api/search?${new URLSearchParams({
+      track_name: trackName,
+      artist_name: artistName
+    })}`);
+    if (Array.isArray(results) && results.length) {
+      // Prefer a result with synced lyrics
+      const withSync = results.find(r => r.syncedLyrics);
+      const best = withSync || results[0];
+      return { synced: best.syncedLyrics || null, plain: best.plainLyrics || null };
+    }
+    return null;
+  } catch (err) {
+    console.error('Lyrics fetch error:', err);
+    return null;
+  }
+});
+
+function fetchLrclib(path) {
+  const url = `https://lrclib.net${path}`;
+  return fetch(url, {
+    headers: { 'User-Agent': 'Snowfy v1.0.0 (https://github.com/snowfy)' }
+  }).then(res => {
+    if (res.status === 404) return null;
+    return res.json();
+  });
+}
+
 // ─── Playlist Cover Image Management ───
 
 function getCoversDir() {
