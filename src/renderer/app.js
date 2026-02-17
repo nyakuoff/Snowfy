@@ -176,29 +176,16 @@
           <h3 class="search-section-header">Songs</h3>`;
       }
 
-      const tempContainer = document.createElement('div');
-      renderTrackList(tempContainer, results, 'search');
-      searchResults.innerHTML = artistCardHtml + tempContainer.innerHTML;
-
-      searchResults.querySelectorAll('.track-row').forEach(row => {
-        row.addEventListener('click', () => {
-          const idx = parseInt(row.dataset.index);
-          playFromList(results, idx);
-        });
-        row.addEventListener('contextmenu', (e) => {
-          e.preventDefault();
-          const idx = parseInt(row.dataset.index);
-          showContextMenu(e, results[idx]);
-        });
-      });
-
-      searchResults.querySelectorAll('.artist-link').forEach(link => {
-        link.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const id = link.dataset.artistId;
-          if (id) openArtistPage(id);
-        });
-      });
+      // Insert artist card above, then render track list directly (preserves drag listeners)
+      if (artistCardHtml) {
+        const artistHeader = document.createElement('div');
+        artistHeader.innerHTML = artistCardHtml;
+        searchResults.innerHTML = '';
+        searchResults.appendChild(artistHeader);
+      } else {
+        searchResults.innerHTML = '';
+      }
+      renderTrackList(searchResults, results, 'search');
 
       searchResults.querySelectorAll('.artist-result-card').forEach(card => {
         card.addEventListener('click', () => {
@@ -234,7 +221,7 @@
 
       html += `
         <div class="track-row ${isPlaying ? 'playing' : ''}" 
-             data-track-id="${track.id}" data-context="${context}" data-index="${i}">
+             data-track-id="${track.id}" data-context="${context}" data-index="${i}" draggable="true">
           <div class="track-num">
             <span class="track-num-text">${isPlaying ? '♫' : i + 1}</span>
             <span class="track-num-play">
@@ -256,7 +243,7 @@
 
     container.innerHTML = html;
 
-    // Click handlers
+    // Click + drag handlers
     container.querySelectorAll('.track-row').forEach(row => {
       row.addEventListener('click', () => {
         const idx = parseInt(row.dataset.index);
@@ -266,6 +253,11 @@
         e.preventDefault();
         const idx = parseInt(row.dataset.index);
         showContextMenu(e, tracks[idx]);
+      });
+      row.addEventListener('dragstart', (e) => {
+        const idx = parseInt(row.dataset.index);
+        const track = tracks[idx];
+        if (track) startTrackDrag(e, track);
       });
     });
 
@@ -884,7 +876,8 @@
 
     container.innerHTML = html;
     container.querySelectorAll('.playlist-item').forEach(item => {
-      item.addEventListener('click', () => {
+      item.addEventListener('click', (e) => {
+        if (_dragActive) return;
         const pid = item.dataset.playlist;
         if (pid === 'liked') {
           showPlaylistDetail({ id: 'liked', name: 'Liked Songs', tracks: state.likedSongs }, true);
@@ -903,6 +896,25 @@
           showSidebarPlaylistMenu(e, pl);
         });
       }
+
+      // Drop target for drag-and-drop
+      item.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+        item.classList.add('drag-over');
+      });
+      item.addEventListener('dragenter', (e) => {
+        e.preventDefault();
+        item.classList.add('drag-over');
+      });
+      item.addEventListener('dragleave', () => {
+        item.classList.remove('drag-over');
+      });
+      item.addEventListener('drop', (e) => {
+        e.preventDefault();
+        item.classList.remove('drag-over');
+        handleTrackDrop(e, item.dataset.playlist);
+      });
     });
   }
 
@@ -1283,7 +1295,7 @@
     }
 
     container.innerHTML = state.recentTracks.slice(0, 8).map(track => `
-      <div class="track-card" data-track-id="${track.id}">
+      <div class="track-card" data-track-id="${track.id}" draggable="true">
         <img class="card-thumb" src="${escapeHtml(track.thumbnail)}" alt="" loading="lazy" />
         <div class="card-title">${escapeHtml(track.title)}</div>
         <div class="card-artist">${escapeHtml(track.artist)}</div>
@@ -1297,6 +1309,10 @@
       card.addEventListener('click', () => {
         const track = state.recentTracks.find(t => t.id === card.dataset.trackId);
         if (track) playFromList([track], 0);
+      });
+      card.addEventListener('dragstart', (e) => {
+        const track = state.recentTracks.find(t => t.id === card.dataset.trackId);
+        if (track) startTrackDrag(e, track);
       });
     });
   }
@@ -1376,7 +1392,7 @@
     if (recommendedSongs.length) {
       songsSection.style.display = '';
       songsContainer.innerHTML = recommendedSongs.map(track => `
-        <div class="track-card" data-track-id="${track.id}">
+        <div class="track-card" data-track-id="${track.id}" draggable="true">
           <img class="card-thumb" src="${escapeHtml(track.thumbnail)}" alt="" loading="lazy" />
           <div class="card-title">${escapeHtml(track.title)}</div>
           <div class="card-artist">${escapeHtml(track.artist)}</div>
@@ -1395,6 +1411,10 @@
           e.preventDefault();
           const track = recommendedSongs.find(t => t.id === card.dataset.trackId);
           if (track) showContextMenu(e, track);
+        });
+        card.addEventListener('dragstart', (e) => {
+          const track = recommendedSongs.find(t => t.id === card.dataset.trackId);
+          if (track) startTrackDrag(e, track);
         });
       });
     } else {
@@ -1546,6 +1566,11 @@
         const idx = parseInt(row.dataset.index);
         showContextMenu(e, album.tracks[idx]);
       });
+      row.addEventListener('dragstart', (e) => {
+        const idx = parseInt(row.dataset.index);
+        const track = album.tracks[idx];
+        if (track) startTrackDrag(e, track);
+      });
     });
 
     $('#btn-album-play-all').onclick = () => {
@@ -1687,6 +1712,56 @@
     if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
     if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\.0$/, '') + 'K';
     return n.toString();
+  }
+
+  // ─── Drag & Drop helpers ───
+
+  let _dragActive = false;
+  let _draggedTrack = null;
+
+  function startTrackDrag(e, track) {
+    _draggedTrack = track;
+    _dragActive = true;
+    e.dataTransfer.effectAllowed = 'copy';
+    e.dataTransfer.setData('text/plain', track.title);
+    const el = e.target.closest('.track-row, .track-card');
+    if (el) el.classList.add('dragging');
+    document.querySelectorAll('.playlist-item').forEach(p => p.classList.add('drop-target'));
+  }
+
+  document.addEventListener('dragend', () => {
+    _dragActive = false;
+    _draggedTrack = null;
+    document.querySelectorAll('.dragging').forEach(el => el.classList.remove('dragging'));
+    document.querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'));
+    document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+  });
+
+  function handleTrackDrop(e, playlistId) {
+    const track = _draggedTrack;
+    if (!track || !track.id) return;
+
+    if (playlistId === 'liked') {
+      if (state.likedSongs.some(t => t.id === track.id)) {
+        showToast('Already in Liked Songs');
+        return;
+      }
+      state.likedSongs.push(track);
+      saveState();
+      updateLikedCount();
+      showToast('Added to Liked Songs');
+    } else {
+      const pl = state.playlists.find(p => p.id === playlistId);
+      if (!pl) return;
+      if (pl.tracks.some(t => t.id === track.id)) {
+        showToast(`Already in "${pl.name}"`);
+        return;
+      }
+      pl.tracks.push(track);
+      saveState();
+      renderPlaylists();
+      showToast(`Added to "${pl.name}"`);
+    }
   }
 
   function init() {

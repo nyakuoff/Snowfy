@@ -2042,3 +2042,26 @@ html, body {
   transform: scale(1.02);
   box-shadow: 0 4px 20px var(--accent-glow);
 }
+
+/* ── Drag & Drop ── */
+.track-row[draggable="true"],
+.track-card[draggable="true"] {
+  -webkit-user-drag: element;
+}
+.track-row.dragging,
+.track-card.dragging {
+  opacity: 0.4;
+}
+.playlist-item.drop-target {
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius);
+}
+[data-theme="light"] .playlist-item.drop-target {
+  border-color: rgba(0, 0, 0, 0.12);
+}
+.playlist-item.drag-over {
+  background: var(--accent-dim) !important;
+  border-color: var(--accent) !important;
+  border-style: solid !important;
+  transform: scale(1.02);
+}

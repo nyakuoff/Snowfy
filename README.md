@@ -63,7 +63,7 @@ npm start
 - [ ] Artist recommendations
 - [x] Smart queue — auto-fills with similar songs when not playing an album/playlist and the queue runs out
 - [ ] Lyrics page with synced lyrics (Spotify-like)
-- [ ] Drag and drop songs into playlists
+- [x] Drag and drop songs into playlists
 
 ## Legal
 
