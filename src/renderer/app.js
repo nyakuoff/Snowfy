@@ -24,6 +24,7 @@
     playlists: [],
     likedSongs: [],
     recentTracks: [],
+    followedArtists: [],
     currentPlaylistId: null,
     isLoading: false,
     musicOnly: true,
@@ -39,6 +40,7 @@
       playlists: state.playlists,
       likedSongs: state.likedSongs,
       recentTracks: state.recentTracks,
+      followedArtists: state.followedArtists,
       volume: state.volume,
       shuffle: state.shuffle,
       repeat: state.repeat,
@@ -64,6 +66,7 @@
         state.playlists = saved.playlists || [];
         state.likedSongs = saved.likedSongs || [];
         state.recentTracks = saved.recentTracks || [];
+        state.followedArtists = saved.followedArtists || [];
         state.volume = saved.volume ?? 0.7;
         state.shuffle = saved.shuffle ?? false;
         state.repeat = saved.repeat || 'off';
@@ -97,6 +100,9 @@
       targetView.style.animation = '';
     }
 
+    if (name === 'home') {
+      renderHome();
+    }
     if (name === 'search') {
       setTimeout(() => $('#search-input').focus(), 100);
     }
@@ -1300,7 +1306,96 @@
   function renderHome() {
     renderRecentTracks();
     renderQuickPicks();
+    renderNewReleases();
     renderRecommendations();
+  }
+
+  let _lastReleaseFetch = 0;
+  let _cachedReleases = null;
+
+  async function renderNewReleases() {
+    const section = $('#new-releases-section');
+    const container = $('#new-releases');
+
+    if (!state.followedArtists.length) {
+      section.style.display = 'none';
+      return;
+    }
+
+    const now = Date.now();
+    const currentYear = new Date().getFullYear();
+
+    // Use cache if fetched within last 30 min
+    if (_cachedReleases && now - _lastReleaseFetch < 30 * 60 * 1000) {
+      if (_cachedReleases.length) {
+        section.style.display = '';
+        renderReleaseCards(container, _cachedReleases);
+      } else {
+        section.style.display = 'none';
+      }
+      return;
+    }
+
+    section.style.display = '';
+    container.innerHTML = `<div class="loading" style="padding:20px"><div class="spinner"></div></div>`;
+
+    try {
+      const results = await Promise.allSettled(
+        state.followedArtists.map(a => window.snowfy.artistInfo(a.artistId))
+      );
+
+      const seen = new Set();
+      const releases = [];
+
+      results.forEach(r => {
+        if (r.status !== 'fulfilled' || !r.value) return;
+        const info = r.value;
+        const all = [...(info.topAlbums || []), ...(info.topSingles || [])];
+        all.forEach(rel => {
+          if (rel.year >= currentYear && !seen.has(rel.albumId)) {
+            seen.add(rel.albumId);
+            releases.push({ ...rel, artistName: info.name });
+          }
+        });
+      });
+
+      releases.sort((a, b) => (b.year || 0) - (a.year || 0));
+      _cachedReleases = releases;
+      _lastReleaseFetch = now;
+
+      if (releases.length) {
+        renderReleaseCards(container, releases);
+      } else {
+        section.style.display = 'none';
+      }
+    } catch (err) {
+      console.error('New releases error:', err);
+      section.style.display = 'none';
+    }
+  }
+
+  function renderReleaseCards(container, releases) {
+    container.innerHTML = releases.map(a => `
+      <div class="album-card" data-album-id="${a.albumId}">
+        <img class="album-card-cover" src="${escapeHtml(a.thumbnail)}" alt="" loading="lazy" />
+        <button class="album-card-play" title="Play">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
+        </button>
+        <div class="album-card-name" title="${escapeHtml(a.name)}">${escapeHtml(a.name)}</div>
+        <div class="album-card-meta">${[a.artistName || '', a.year, a.type].filter(Boolean).join(' \u00B7 ')}</div>
+      </div>
+    `).join('');
+
+    container.querySelectorAll('.album-card').forEach(card => {
+      const albumId = card.dataset.albumId;
+      const meta = releases.find(a => a.albumId === albumId);
+      card.querySelector('.album-card-play').addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const album = await window.snowfy.albumTracks(albumId);
+        if (album && album.tracks.length) playFromList(album.tracks, 0);
+      });
+      card.addEventListener('click', () => showAlbumDetail(albumId, meta));
+    });
   }
 
   function renderRecentTracks() {
@@ -1643,6 +1738,28 @@
     }
 
     aboutSection.style.display = 'none';
+
+    // Follow button
+    const followBtn = $('#btn-artist-follow');
+    const isFollowed = () => state.followedArtists.some(a => a.artistId === artistId);
+    const updateFollowBtn = () => {
+      followBtn.textContent = isFollowed() ? 'Following' : 'Follow';
+      followBtn.classList.toggle('following', isFollowed());
+    };
+    updateFollowBtn();
+    followBtn.onclick = () => {
+      if (isFollowed()) {
+        state.followedArtists = state.followedArtists.filter(a => a.artistId !== artistId);
+        showToast(`Unfollowed ${info.name}`);
+      } else {
+        state.followedArtists.push({ artistId, name: info.name, avatar: info.avatar || '' });
+        showToast(`Following ${info.name}`);
+      }
+      _cachedReleases = null;
+      _lastReleaseFetch = 0;
+      saveState();
+      updateFollowBtn();
+    };
 
     // Use topSongs for popular section
     const popular = (info.topSongs || []).slice(0, 5);

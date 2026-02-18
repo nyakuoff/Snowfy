@@ -1472,6 +1472,30 @@ html, body {
   gap: 16px;
   padding: 24px 8px 8px;
 }
+.follow-btn {
+  padding: 6px 24px;
+  border-radius: 500px;
+  border: 1px solid var(--text-subdued);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition), transform 0.15s;
+  letter-spacing: 0.02em;
+}
+.follow-btn:hover {
+  border-color: var(--text-primary);
+  transform: scale(1.03);
+}
+.follow-btn.following {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.follow-btn.following:hover {
+  border-color: var(--text-subdued);
+  color: var(--text-subdued);
+}
 
 .artist-section {
   padding: 16px 0;

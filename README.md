@@ -64,8 +64,9 @@ npm start
 - [x] Lyrics page with synced lyrics (Spotify-like)
 - [x] Drag and drop songs into playlists
 - [ ] Discord RPC
-- [ ] Follow Artist feature
-- [ ] Upcoming Releases of followed artists
+- [x] Follow Artist feature
+- [ ] Upcoming Releases from followed artists
+- [x] Recent Releases from followed artists
 - [x] Watch Music Videos in-app
 
 ## Legal
