@@ -527,7 +527,16 @@
         const j = Math.floor(Math.random() * (i + 1));
         [pool[i], pool[j]] = [pool[j], pool[i]];
       }
-      const newTracks = pool.slice(0, 20);
+      const maxAdd = Math.min(20, 200 - state.queue.length);
+      if (maxAdd <= 0) {
+        // Trim oldest played tracks to make room
+        const trim = Math.min(state.queueIndex, state.queue.length - 100);
+        if (trim > 0) {
+          state.queue.splice(0, trim);
+          state.queueIndex -= trim;
+        }
+      }
+      const newTracks = pool.slice(0, Math.max(maxAdd, 10));
 
       state.queue.push(...newTracks);
       state.queueIndex++;
@@ -2206,13 +2215,8 @@
 
         // Keep audio in sync with video
         videoPlayer.addEventListener('seeked', syncVideoAudio);
-        videoPlayer.addEventListener('pause', () => _videoAudio?.pause());
-        videoPlayer.addEventListener('play', () => {
-          if (_videoAudio) {
-            _videoAudio.currentTime = videoPlayer.currentTime;
-            _videoAudio.play();
-          }
-        });
+        videoPlayer.addEventListener('pause', onVideoPause);
+        videoPlayer.addEventListener('play', onVideoPlay);
 
         // Periodic drift correction
         videoPlayer.addEventListener('timeupdate', syncVideoAudio);
@@ -2235,11 +2239,21 @@
     }
   }
 
+  function onVideoPause() { _videoAudio?.pause(); }
+  function onVideoPlay() {
+    if (_videoAudio) {
+      _videoAudio.currentTime = videoPlayer.currentTime;
+      _videoAudio.play();
+    }
+  }
+
   function closeVideoPlayer() {
     videoOverlay.classList.add('hidden');
     videoPlayer.pause();
     videoPlayer.removeEventListener('seeked', syncVideoAudio);
     videoPlayer.removeEventListener('timeupdate', syncVideoAudio);
+    videoPlayer.removeEventListener('pause', onVideoPause);
+    videoPlayer.removeEventListener('play', onVideoPlay);
     videoPlayer.src = '';
     if (_videoAudio) { _videoAudio.pause(); _videoAudio.src = ''; _videoAudio = null; }
 

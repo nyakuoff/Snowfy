@@ -23,7 +23,7 @@ You'll need [Node.js](https://nodejs.org/) (v18+) and [yt-dlp](https://github.co
 
 ```bash
 # Clone the repo
-git clone https://github.com/your-username/snowify.git
+git clone https://github.com/nyakuoff/Snowify.git
 cd snowify
 
 # Install dependencies

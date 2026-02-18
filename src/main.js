@@ -291,6 +291,16 @@ ipcMain.handle('yt:getUpNexts', async (_event, videoId) => {
 // ─── Lyrics (LRCLIB) ───
 
 const _lyricsCache = new Map();
+const _lyricsCacheMax = 200;
+
+function lyricsCacheSet(key, value) {
+  if (_lyricsCache.size >= _lyricsCacheMax) {
+    // Evict oldest entry (first key in Map iteration order)
+    const oldest = _lyricsCache.keys().next().value;
+    _lyricsCache.delete(oldest);
+  }
+  _lyricsCache.set(key, value);
+}
 
 ipcMain.handle('lyrics:get', async (_event, trackName, artistName, albumName, durationSec) => {
   const cacheKey = `${trackName}||${artistName}`.toLowerCase();
@@ -306,7 +316,7 @@ ipcMain.handle('lyrics:get', async (_event, trackName, artistName, albumName, du
       const withSync = results.find(r => r.syncedLyrics);
       const best = withSync || results[0];
       const out = { synced: best.syncedLyrics || null, plain: best.plainLyrics || null };
-      _lyricsCache.set(cacheKey, out);
+      lyricsCacheSet(cacheKey, out);
       return out;
     }
 
@@ -320,12 +330,12 @@ ipcMain.handle('lyrics:get', async (_event, trackName, artistName, albumName, du
       })}`);
       if (exact && (exact.syncedLyrics || exact.plainLyrics)) {
         const out = { synced: exact.syncedLyrics || null, plain: exact.plainLyrics || null };
-        _lyricsCache.set(cacheKey, out);
+        lyricsCacheSet(cacheKey, out);
         return out;
       }
     }
 
-    _lyricsCache.set(cacheKey, null);
+    lyricsCacheSet(cacheKey, null);
     return null;
   } catch (err) {
     console.error('Lyrics fetch error:', err);
