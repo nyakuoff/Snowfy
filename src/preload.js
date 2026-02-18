@@ -35,6 +35,10 @@ contextBridge.exposeInMainWorld('snowify', {
     ipcRenderer.on('auth:stateChanged', (_event, user) => callback(user));
   },
 
+  // Spotify import
+  spotifyFetchPlaylist: (url) => ipcRenderer.invoke('spotify:fetchPlaylist', url),
+  spotifyMatchTrack: (title, artist) => ipcRenderer.invoke('spotify:matchTrack', title, artist),
+
   // Discord RPC
   connectDiscord: () => ipcRenderer.invoke('discord:connect'),
   disconnectDiscord: () => ipcRenderer.invoke('discord:disconnect'),

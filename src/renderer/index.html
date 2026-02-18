@@ -77,9 +77,14 @@
       <div class="sidebar-section">
         <div class="sidebar-section-header">
           <h3>Playlists</h3>
-          <button class="icon-btn" id="btn-create-playlist" title="Create playlist">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3v14M3 10h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
-          </button>
+          <div class="sidebar-header-actions">
+            <button class="icon-btn" id="btn-spotify-import" title="Import from Spotify">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.6 0 12 0zm5.52 17.28c-.24.36-.66.48-1.02.24-2.82-1.74-6.36-2.1-10.56-1.14-.42.12-.78-.18-.9-.54-.12-.42.18-.78.54-.9 4.56-1.02 8.52-.6 11.7 1.32.36.24.48.66.24 1.02zm1.44-3.3c-.3.42-.84.6-1.26.3-3.24-1.98-8.16-2.58-11.94-1.38-.48.12-.99-.12-1.14-.6-.12-.48.12-.99.6-1.14 4.38-1.32 9.78-.66 13.5 1.62.36.18.54.78.24 1.2zm.12-3.36C15.24 8.4 8.88 8.16 5.16 9.3c-.6.18-1.2-.18-1.38-.72-.18-.6.18-1.2.72-1.38 4.26-1.26 11.28-1.02 15.72 1.62.54.3.72 1.02.42 1.56-.3.42-1.02.6-1.56.3z"/></svg>
+            </button>
+            <button class="icon-btn" id="btn-create-playlist" title="Create playlist">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3v14M3 10h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+            </button>
+          </div>
         </div>
         <div id="playlist-list" class="playlist-list">
           <div class="playlist-item" data-playlist="liked">
@@ -548,6 +553,35 @@
       <div class="modal-buttons">
         <button class="modal-btn modal-cancel" id="input-modal-cancel">Cancel</button>
         <button class="modal-btn modal-confirm" id="input-modal-ok">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ Spotify Import Modal ═══════ -->
+  <div id="spotify-modal" class="modal-overlay hidden">
+    <div class="modal-box spotify-modal-box">
+      <h3 id="spotify-modal-title">Import Spotify Playlists</h3>
+      <div id="spotify-step-url" class="spotify-step">
+        <p class="spotify-step-desc">Paste one or more public Spotify playlist links (one per line).</p>
+        <textarea id="spotify-playlist-url" spellcheck="false" autocomplete="off" placeholder="https://open.spotify.com/playlist/...&#10;https://open.spotify.com/playlist/..." rows="4"></textarea>
+        <p class="spotify-error hidden" id="spotify-error"></p>
+        <div class="modal-buttons">
+          <button class="modal-btn modal-cancel" id="spotify-cancel">Cancel</button>
+          <button class="modal-btn modal-confirm" id="spotify-start">Import</button>
+        </div>
+      </div>
+      <div id="spotify-step-progress" class="spotify-step hidden">
+        <div class="spotify-progress-info">
+          <span id="spotify-progress-text">Matching tracks...</span>
+          <span id="spotify-progress-count">0 / 0</span>
+        </div>
+        <div class="spotify-progress-bar">
+          <div class="spotify-progress-fill" id="spotify-progress-fill"></div>
+        </div>
+        <div class="spotify-track-list" id="spotify-track-list"></div>
+        <div class="modal-buttons" id="spotify-done-buttons" style="display:none">
+          <button class="modal-btn modal-confirm" id="spotify-done">Done</button>
+        </div>
       </div>
     </div>
   </div>

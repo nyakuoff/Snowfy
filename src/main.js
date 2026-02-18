@@ -680,6 +680,67 @@ ipcMain.handle('lyrics:get', async (_event, trackName, artistName, albumName, du
   }
 });
 
+// ─── Spotify Playlist Import ───
+
+ipcMain.handle('spotify:fetchPlaylist', async (_event, playlistUrl) => {
+  try {
+    // Extract playlist ID from URL or raw ID
+    const match = playlistUrl.match(/playlist[/:]([a-zA-Z0-9]+)/);
+    const playlistId = match ? match[1] : playlistUrl.trim();
+    if (!playlistId || playlistId.length < 10) return { error: 'Invalid playlist URL' };
+
+    // Fetch the Spotify embed page (no auth needed)
+    const embedUrl = `https://open.spotify.com/embed/playlist/${playlistId}`;
+    const res = await fetch(embedUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' }
+    });
+    if (!res.ok) {
+      if (res.status === 404) return { error: 'Playlist not found — is it public?' };
+      return { error: `Could not fetch playlist (${res.status})` };
+    }
+
+    const html = await res.text();
+
+    // Extract __NEXT_DATA__ JSON from the embed page
+    const jsonMatch = html.match(/<script id="__NEXT_DATA__" type="application\/json">([^<]+)<\/script>/);
+    if (!jsonMatch) return { error: 'Could not parse playlist data — Spotify may have changed their embed format' };
+
+    const data = JSON.parse(jsonMatch[1]);
+    const entity = data?.props?.pageProps?.state?.data?.entity;
+    if (!entity || !entity.trackList?.length) return { error: 'Playlist is empty or could not be read' };
+
+    const tracks = entity.trackList
+      .filter(t => t.title)
+      .map(t => ({
+        title: t.title,
+        artist: t.subtitle || 'Unknown Artist',
+        durationMs: t.duration || 0
+      }));
+
+    return {
+      name: entity.name || 'Spotify Playlist',
+      thumbnail: entity.coverArt?.sources?.[0]?.url || '',
+      tracks
+    };
+  } catch (err) {
+    console.error('Spotify fetch error:', err);
+    return { error: err.message };
+  }
+});
+
+ipcMain.handle('spotify:matchTrack', async (_event, title, artist) => {
+  try {
+    const query = `${title} ${artist}`;
+    const songs = await ytmusic.searchSongs(query);
+    const match = songs.find(s => s.videoId);
+    if (!match) return null;
+    return mapSongToTrack(match);
+  } catch (err) {
+    console.error('Spotify match error:', err);
+    return null;
+  }
+});
+
 // ─── Playlist Cover Image Management ───
 
 function getCoversDir() {
