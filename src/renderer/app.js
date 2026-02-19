@@ -1875,7 +1875,7 @@
     const fansSection = $('#artist-fans-section');
     const fansContainer = $('#artist-fans');
 
-    avatar.src = '';
+    avatar.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
     nameEl.textContent = 'Loading...';
     followersEl.textContent = '';
     descEl.textContent = '';
