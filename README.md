@@ -3,7 +3,7 @@
 A desktop music player built with Electron that streams audio from YouTube Music. Clean UI, no accounts, no ads.
 
 > [!WARNING]
-> This is an **early version** of the app. It's still a work in progress and may contain bugs or unfinished features, a Beta version will be released in due time. Until then, use at your own discretion.
+> This is a **Beta version** of the app. It's still a work in progress and may contain bugs or unfinished features, use at your own discretion.
 
 ## Features
 
