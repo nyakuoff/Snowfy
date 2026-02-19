@@ -120,6 +120,14 @@
       targetView.style.animation = '';
     }
 
+    if (_lyricsVisible) {
+      _lyricsVisible = false;
+      lyricsPanel.classList.add('hidden');
+      lyricsPanel.classList.remove('visible');
+      btnLyrics.classList.remove('active');
+      stopLyricsSync();
+    }
+
     if (name === 'home') {
       renderHome();
     }
