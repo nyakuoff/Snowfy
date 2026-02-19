@@ -36,7 +36,12 @@ function disconnectDiscordRPC() {
 
 function getYtDlpPath() {
   const isWin = process.platform === 'win32';
+  const isMac = process.platform === 'darwin';
   const binName = isWin ? 'yt-dlp.exe' : 'yt-dlp';
+
+  // macOS: always use system PATH (bundled PyInstaller binary is too slow)
+  if (isMac) return binName;
+
   const subDir = isWin ? 'win' : 'linux';
 
   // In production: resources/bin/<platform>/yt-dlp
@@ -131,9 +136,50 @@ function createWindow() {
   });
 }
 
+// ─── macOS yt-dlp Setup Check ───
+
+function checkMacYtDlp() {
+  if (process.platform !== 'darwin') return;
+
+  const { execFileSync } = require('child_process');
+  try {
+    execFileSync('which', ['yt-dlp'], { stdio: 'ignore' });
+    return; // yt-dlp found in PATH
+  } catch (_) {
+    // not found — show setup dialog
+  }
+
+  let hasBrew = false;
+  try {
+    execFileSync('which', ['brew'], { stdio: 'ignore' });
+    hasBrew = true;
+  } catch (_) {}
+
+  const message = hasBrew
+    ? 'yt-dlp is required for audio streaming but was not found on your system.\n\nInstall it by running this command in Terminal:\n\nbrew install yt-dlp'
+    : 'yt-dlp is required for audio streaming but was not found on your system.\n\nYou need Homebrew first. Install it from https://brew.sh, then run:\n\nbrew install yt-dlp';
+
+  const buttons = hasBrew ? ['OK'] : ['Open brew.sh', 'OK'];
+
+  const response = dialog.showMessageBoxSync(mainWindow, {
+    type: 'warning',
+    title: 'yt-dlp Not Found',
+    message: 'Setup Required',
+    detail: message,
+    buttons,
+    defaultId: buttons.length - 1,
+    noLink: true
+  });
+
+  if (!hasBrew && response === 0) {
+    shell.openExternal('https://brew.sh');
+  }
+}
+
 app.whenReady().then(async () => {
   await initYTMusic();
   createWindow();
+  checkMacYtDlp();
   // Restore saved session after window is ready
   autoSignIn();
 });

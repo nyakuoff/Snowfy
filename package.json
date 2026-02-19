@@ -8,6 +8,7 @@
     "dev": "electron . --dev",
     "build": "electron-builder --linux",
     "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
     "build:all": "electron-builder --linux --win"
   },
   "keywords": [
@@ -63,6 +64,13 @@
           ]
         }
       ]
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "assets/logo.png",
+      "category": "public.app-category.music"
     },
     "files": [
       "src/**/*",
