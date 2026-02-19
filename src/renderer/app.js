@@ -470,6 +470,7 @@
       addToRecent(track);
       updateDiscordPresence(track);
       saveState();
+      prefetchNextTrack();
     } catch (err) {
       console.error('Playback error:', err);
       const msg = typeof err === 'string' ? err : (err.message || 'unknown error');
@@ -492,6 +493,16 @@
     }
     updatePlayButton();
     updateTrackHighlight();
+  }
+
+  function prefetchNextTrack() {
+    const nextIdx = state.queueIndex + 1;
+    if (nextIdx >= state.queue.length) return;
+    const next = state.queue[nextIdx];
+    if (!next || !next.url && !next.id) return;
+    const url = next.url || `https://music.youtube.com/watch?v=${next.id}`;
+    // Fire-and-forget: this populates the main-process cache
+    window.snowify.getStreamUrl(url, state.audioQuality).catch(() => {});
   }
 
   function playFromList(tracks, index) {

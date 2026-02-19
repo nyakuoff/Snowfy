@@ -6,6 +6,31 @@ const { execFile } = require('child_process');
 let mainWindow;
 let ytmusic;
 
+// ─── Stream URL Cache ───
+const _streamCache = new Map();
+const STREAM_CACHE_TTL = 4 * 60 * 60 * 1000;
+
+function getCachedUrl(key) {
+  const entry = _streamCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > STREAM_CACHE_TTL) {
+    _streamCache.delete(key);
+    return null;
+  }
+  return entry.value;
+}
+
+function setCachedUrl(key, value) {
+  _streamCache.set(key, { value, ts: Date.now() });
+
+  if (_streamCache.size > 200) {
+    const now = Date.now();
+    for (const [k, v] of _streamCache) {
+      if (now - v.ts > STREAM_CACHE_TTL) _streamCache.delete(k);
+    }
+  }
+}
+
 // ─── Discord RPC ───
 
 const { Client } = require('@xhayper/discord-rpc');
@@ -582,17 +607,23 @@ ipcMain.handle('yt:searchArtists', async (_event, query) => {
 
 ipcMain.handle('yt:getStreamUrl', async (_event, videoUrl, quality) => {
   const fmt = quality === 'worstaudio' ? 'worstaudio' : 'bestaudio';
+  const cacheKey = `audio:${videoUrl}:${fmt}`;
+  const cached = getCachedUrl(cacheKey);
+  if (cached) return cached;
+
   return new Promise((resolve, reject) => {
     execFile(getYtDlpPath(), [
       '-f', fmt,
       '--get-url',
       '--no-warnings',
       '--no-playlist',
+      '--no-check-certificates',
       videoUrl
     ], { timeout: 15000 }, (err, stdout, stderr) => {
       if (err) return reject(stderr?.trim() || err.message);
       const url = stdout.trim().split('\n')[0];
       if (!url) return reject('yt-dlp returned no URL');
+      setCachedUrl(cacheKey, url);
       resolve(url);
     });
   });
@@ -603,19 +634,25 @@ ipcMain.handle('yt:getVideoStreamUrl', async (_event, videoId, quality, premuxed
   const fmt = premuxed
     ? `best[height<=${height}]/best`
     : `bestvideo[height<=${height}][ext=mp4]+bestaudio[ext=m4a]/best[height<=${height}]/best`;
+  const cacheKey = `video:${videoId}:${fmt}`;
+  const cached = getCachedUrl(cacheKey);
+  if (cached) return cached;
+
   return new Promise((resolve, reject) => {
     execFile(getYtDlpPath(), [
       '-f', fmt,
       '--get-url',
       '--no-warnings',
       '--no-playlist',
+      '--no-check-certificates',
       `https://music.youtube.com/watch?v=${videoId}`
     ], { timeout: 20000 }, (err, stdout, stderr) => {
       if (err) return reject(stderr?.trim() || err.message);
       const urls = stdout.trim().split('\n').filter(Boolean);
       if (!urls.length) return reject('yt-dlp returned no video URL');
-      // If 2 URLs: [video, audio]. If 1 URL: muxed stream
-      resolve({ videoUrl: urls[0], audioUrl: urls[1] || null });
+      const result = { videoUrl: urls[0], audioUrl: urls[1] || null };
+      setCachedUrl(cacheKey, result);
+      resolve(result);
     });
   });
 });
