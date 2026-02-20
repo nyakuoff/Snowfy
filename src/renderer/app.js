@@ -143,11 +143,22 @@
     if (name === 'library') {
       renderLibrary();
     }
+
+    updateFloatingSearch();
   }
 
   navBtns.forEach(btn => {
     btn.addEventListener('click', () => switchView(btn.dataset.view));
   });
+
+  // ── Floating search pill ──
+  const floatingSearch = $('#floating-search');
+  floatingSearch.addEventListener('click', () => switchView('search'));
+
+  function updateFloatingSearch() {
+    const show = ['home', 'explore', 'library'].includes(state.currentView);
+    floatingSearch.classList.toggle('hidden', !show);
+  }
 
   let searchTimeout = null;
   const searchInput = $('#search-input');
@@ -1471,7 +1482,9 @@
     state.recentTracks.unshift(track);
     if (state.recentTracks.length > 20) state.recentTracks.pop();
     saveState();
-    renderHome();
+    // Only update the lightweight parts — skip expensive API calls
+    renderRecentTracks();
+    renderQuickPicks();
   }
 
   async function renderHome() {
@@ -1777,10 +1790,10 @@
   }
 
   const MOOD_COLORS = [
-    '#2d4a3e', '#3b3054', '#4a3728', '#2a3f5f', '#5c3d3d',
-    '#3d5c4a', '#4b3b5c', '#5c4b3b', '#3b4b5c', '#4a5c3b',
-    '#5c3b4b', '#3b5c5c', '#54443b', '#3b4454', '#44543b',
-    '#543b44', '#3b5444', '#44433b', '#3b3d54', '#543b3d',
+    '#1db954', '#e13300', '#8c67ab', '#e8115b', '#1e90ff',
+    '#f59b23', '#158a43', '#ba55d3', '#e05050', '#509bf5',
+    '#ff6437', '#7358ff', '#27856a', '#e91e63', '#1db4e8',
+    '#af2896', '#148a08', '#dc5b2e', '#5080ff', '#d84000',
   ];
 
   const POPULAR_MOODS = new Set([
@@ -1867,10 +1880,13 @@
     if (exploreData?.newMusicVideos?.length) {
       html += `<div class="explore-section"><h2>New Music Videos</h2><div class="scroll-container"><button class="scroll-arrow scroll-arrow-left" data-dir="left"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button><div class="album-scroll music-video-scroll">`;
       html += exploreData.newMusicVideos.slice(0, 15).map(v => `
-        <div class="music-video-card" data-video-id="${escapeHtml(v.id)}">
-          <img class="music-video-thumb" src="${escapeHtml(v.thumbnail)}" alt="" loading="lazy" />
-          <div class="music-video-title">${escapeHtml(v.title)}</div>
-          <div class="music-video-artist">${escapeHtml(v.artist)}</div>
+        <div class="video-card" data-video-id="${escapeHtml(v.id)}">
+          <img class="video-card-thumb" src="${escapeHtml(v.thumbnail)}" alt="" loading="lazy" />
+          <button class="video-card-play" title="Watch">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
+          </button>
+          <div class="video-card-name" title="${escapeHtml(v.title)}">${escapeHtml(v.title)}</div>
+          <div class="video-card-duration">${escapeHtml(v.artist)}</div>
         </div>
       `).join('');
       html += `</div><button class="scroll-arrow scroll-arrow-right" data-dir="right"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button></div></div>`;
@@ -1922,7 +1938,7 @@
     });
 
     // New music videos
-    content.querySelectorAll('.music-video-card').forEach(card => {
+    content.querySelectorAll('.music-video-scroll .video-card').forEach(card => {
       const v = (exploreData?.newMusicVideos || []).find(t => t.id === card.dataset.videoId);
       if (v) {
         card.addEventListener('click', () => playFromList([v], 0));
@@ -2217,6 +2233,8 @@
     switchView('artist');
 
     const avatar = $('#artist-avatar');
+    const bannerEl = $('#artist-banner');
+    const bannerImg = $('#artist-banner-img');
     const nameEl = $('#artist-name');
     const followersEl = $('#artist-followers');
     const descEl = $('#artist-description');
@@ -2234,6 +2252,8 @@
     avatar.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
     avatar.classList.remove('loaded');
     avatar.classList.add('shimmer');
+    bannerEl.style.display = 'none';
+    bannerImg.src = '';
     nameEl.textContent = 'Loading...';
     followersEl.textContent = '';
     descEl.textContent = '';
@@ -2265,6 +2285,13 @@
         avatar.classList.add('loaded');
       }, { once: true });
       avatar.src = info.avatar;
+    }
+
+    if (info.banner) {
+      bannerImg.src = info.banner;
+      bannerEl.style.display = '';
+    } else {
+      bannerEl.style.display = 'none';
     }
 
     aboutSection.style.display = 'none';
@@ -2351,14 +2378,14 @@
       });
     }
 
-    // Wire up filter buttons
+    // Wire up filter buttons (use onclick to avoid listener accumulation)
     const filterBtns = document.querySelectorAll('#disco-filters .disco-filter');
     filterBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.onclick = () => {
         filterBtns.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         renderDiscography(btn.dataset.filter);
-      });
+      };
     });
 
     // Reset filter to "all" and render
@@ -2655,7 +2682,10 @@
   function startLyricsSync() {
     stopLyricsSync();
     if (!_lyricsLines.length) return;
-    _lyricsSyncInterval = setInterval(syncLyrics, 100);
+    _lyricsSyncInterval = setInterval(() => {
+      if (audio.paused) return;
+      syncLyrics();
+    }, 100);
   }
 
   function stopLyricsSync() {
@@ -3340,7 +3370,10 @@
     };
   }
 
+  let _settingsInitialized = false;
   async function initSettings() {
+    if (_settingsInitialized) return;
+    _settingsInitialized = true;
     const autoplayToggle = $('#setting-autoplay');
     const qualitySelect = $('#setting-quality');
     const videoQualitySelect = $('#setting-video-quality');
@@ -3374,17 +3407,13 @@
     }
     applyTheme(state.theme);
 
-    // Theme picker
-    const themePicker = $('#theme-picker');
-    if (themePicker) {
-      const swatches = $$('.theme-swatch', themePicker);
-      swatches.forEach(s => s.classList.toggle('active', s.dataset.theme === state.theme));
-      themePicker.addEventListener('click', (e) => {
-        const swatch = e.target.closest('.theme-swatch');
-        if (!swatch) return;
-        state.theme = swatch.dataset.theme;
+    // Theme dropdown
+    const themeSelect = $('#theme-select');
+    if (themeSelect) {
+      themeSelect.value = state.theme;
+      themeSelect.addEventListener('change', () => {
+        state.theme = themeSelect.value;
         applyTheme(state.theme);
-        swatches.forEach(s => s.classList.toggle('active', s.dataset.theme === state.theme));
         saveState();
       });
     }

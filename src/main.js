@@ -100,7 +100,7 @@ function getSquareThumbnail(thumbnails, size = 226) {
   const url = getBestThumbnail(thumbnails);
   if (!url) return '';
   if (url.includes('lh3.googleusercontent.com')) {
-    return url.replace(/=w\d+-h\d+.*$/, `=w${size}-h${size}-l90-rj`);
+    return url.replace(/=(?:w\d+-h\d+|s\d+|p-w\d+).*$/, `=w${size}-h${size}-l90-rj`);
   }
   return url;
 }
@@ -564,6 +564,7 @@ ipcMain.handle('yt:artistInfo', async (_event, artistId) => {
 
     // Fetch raw browse data to extract fields the library parser misses
     let monthlyListeners = '';
+    let banner = '';
     let fansAlsoLike = [];
     let livePerformances = [];
     let rawTopSongsArtists = {};
@@ -571,6 +572,13 @@ ipcMain.handle('yt:artistInfo', async (_event, artistId) => {
       const rawData = await ytmusic.constructRequest('browse', { browseId: artistId });
       const header = rawData?.header?.musicImmersiveHeaderRenderer || rawData?.header?.musicVisualHeaderRenderer;
       monthlyListeners = header?.monthlyListenerCount?.runs?.[0]?.text || '';
+      const bannerThumbs = header?.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails || [];
+      const bannerUrl = getBestThumbnail(bannerThumbs);
+      if (bannerUrl && bannerUrl.includes('lh3.googleusercontent.com')) {
+        banner = bannerUrl.replace(/=(?:w\d+-h\d+|s\d+|p-w\d+).*$/, '=w1440-h600-p-l90-rj');
+      } else {
+        banner = bannerUrl;
+      }
 
       // Parse carousel sections by title instead of hardcoded index
       const sections = rawData?.contents?.singleColumnBrowseResultsRenderer
@@ -639,8 +647,9 @@ ipcMain.handle('yt:artistInfo', async (_event, artistId) => {
       description: '',
       followers: 0,
       monthlyListeners,
+      banner,
       tags: [],
-      avatar: getBestThumbnail(artist.thumbnails),
+      avatar: getSquareThumbnail(artist.thumbnails, 512),
       topSongs: (artist.topSongs || []).filter(s => s.videoId).map(song => {
         const artists = rawTopSongsArtists[song.videoId] || null;
         return mapSongToTrack(song, artists);
@@ -1095,8 +1104,26 @@ const { SyncLyrics } = require('@stef-0012/synclyrics');
 
 let _mxmTokenData = null;
 
+// LRU-limited cache for lyrics (max 50 entries)
+const _lyricsCache = new Map();
+const _lyricsCacheLimit = 50;
+const lyricsCacheProxy = {
+  get(key) { return _lyricsCache.get(key); },
+  set(key, value) {
+    if (_lyricsCache.size >= _lyricsCacheLimit) {
+      const oldest = _lyricsCache.keys().next().value;
+      _lyricsCache.delete(oldest);
+    }
+    _lyricsCache.set(key, value);
+  },
+  has(key) { return _lyricsCache.has(key); },
+  delete(key) { return _lyricsCache.delete(key); },
+  clear() { _lyricsCache.clear(); },
+  get size() { return _lyricsCache.size; }
+};
+
 const lyricsManager = new SyncLyrics({
-  cache: new Map(),
+  cache: lyricsCacheProxy,
   logLevel: 'none',
   sources: ['musixmatch', 'lrclib', 'netease'],
   saveMusixmatchToken: (tokenData) => { _mxmTokenData = tokenData; },
