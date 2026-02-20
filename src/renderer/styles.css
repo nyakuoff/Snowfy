@@ -508,8 +508,8 @@ html, body {
 .view.active { display: block; }
 
 @keyframes viewEnter {
-  from { opacity: 0; transform: translateY(12px) scale(0.995); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 .view-header {
@@ -787,6 +787,9 @@ html, body {
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   margin-bottom: 4px;
 }
+.track-list-header.no-duration {
+  grid-template-columns: 40px 1fr 1fr;
+}
 .track-list-header span {
   font-size: 11px;
   color: var(--text-subdued);
@@ -804,6 +807,9 @@ html, body {
   align-items: center;
   cursor: pointer;
   transition: background var(--transition), transform var(--transition);
+}
+.track-row.no-duration {
+  grid-template-columns: 40px 1fr 1fr;
 }
 .track-row:hover {
   background: rgba(255, 255, 255, 0.04);
@@ -1434,7 +1440,8 @@ html, body {
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
   background: var(--bg-elevated);
   flex-shrink: 0;
-  transition: transform var(--transition), box-shadow var(--transition);
+  opacity: 0;
+  transition: transform var(--transition), box-shadow var(--transition), opacity 0.3s ease;
 }
 .artist-avatar:hover {
   transform: scale(1.03);
@@ -1589,24 +1596,13 @@ html, body {
   letter-spacing: 0.5px;
 }
 
-/* Clickable artist name in track rows */
-.track-artist-col .artist-link {
-  color: var(--text-subdued);
+/* Clickable artist links (global — used in track rows, now playing, queue, cards) */
+.artist-link {
   cursor: pointer;
   transition: color var(--transition);
   text-decoration: none;
 }
-.track-artist-col .artist-link:hover {
-  color: var(--accent);
-  text-decoration: underline;
-}
-
-/* Clickable artist in now-playing bar */
-.np-artist.clickable {
-  cursor: pointer;
-  transition: color var(--transition);
-}
-.np-artist.clickable:hover {
+.artist-link:hover {
   color: var(--accent);
   text-decoration: underline;
 }
@@ -1795,6 +1791,14 @@ html, body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.album-card-artist.clickable {
+  cursor: pointer;
+  transition: color var(--transition);
+}
+.album-card-artist.clickable:hover {
+  color: var(--accent);
+  text-decoration: underline;
 }
 .album-card-play {
   position: absolute;
@@ -2946,3 +2950,19 @@ html, body {
 
 [data-theme="light"] .video-card { background: var(--bg-card); border-color: rgba(0, 0, 0, 0.06); }
 [data-theme="light"] .video-card:hover { border-color: rgba(0, 0, 0, 0.12); }
+
+.shimmer {
+  opacity: 1;
+  background: linear-gradient(90deg, var(--bg-elevated) 25%, rgba(255,255,255,0.06) 50%, var(--bg-elevated) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+.loaded {
+  opacity: 1;
+  animation: none;
+  background: var(--bg-elevated);
+}
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

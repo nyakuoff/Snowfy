@@ -104,12 +104,52 @@ function getSquareThumbnail(thumbnails, size = 226) {
   return url;
 }
 
-function mapSongToTrack(song) {
+function parseArtistsFromRuns(runs) {
+  if (!runs?.length) return [];
+  const artistRuns = runs.filter(r => {
+    const pageType = r.navigationEndpoint?.browseEndpoint
+      ?.browseEndpointContextSupportedConfigs
+      ?.browseEndpointContextMusicConfig?.pageType;
+    return pageType === 'MUSIC_PAGE_TYPE_ARTIST';
+  });
+  if (artistRuns.length > 0) {
+    return artistRuns.map(r => ({
+      name: r.text,
+      id: r.navigationEndpoint.browseEndpoint.browseId
+    }));
+  }
+  // Fallback: plain text with no browseIds
+  if (runs.length >= 1 && !runs[0].navigationEndpoint) {
+    const text = runs.map(r => r.text).join('');
+    const dotIdx = text.indexOf(' \u2022 ');
+    const artistText = dotIdx >= 0 ? text.slice(0, dotIdx) : text;
+    return artistText.split(/,\s*|\s*&\s*/).filter(Boolean)
+      .map(name => ({ name: name.trim(), id: null }));
+  }
+  return [];
+}
+
+function buildArtistFields(artists) {
+  if (!artists?.length) return { artist: 'Unknown Artist', artistId: null, artists: [] };
+  return {
+    artist: artists.map(a => a.name).join(', '),
+    artistId: artists[0].id || null,
+    artists
+  };
+}
+
+function mapSongToTrack(song, artists) {
+  const artistFields = artists
+    ? buildArtistFields(artists)
+    : {
+        artist: song.artist?.name || 'Unknown Artist',
+        artistId: song.artist?.artistId || null,
+        artists: song.artist ? [{ name: song.artist.name, id: song.artist.artistId || null }] : []
+      };
   return {
     id: song.videoId,
     title: song.name || 'Unknown',
-    artist: song.artist?.name || 'Unknown Artist',
-    artistId: song.artist?.artistId || null,
+    ...artistFields,
     album: song.album?.name || null,
     thumbnail: getSquareThumbnail(song.thumbnails),
     duration: formatDuration(song.duration),
@@ -429,22 +469,87 @@ ipcMain.handle('discord:clearPresence', async () => {
 ipcMain.handle('yt:search', async (_event, query, musicOnly) => {
   try {
     if (musicOnly) {
-      const songs = await ytmusic.searchSongs(query);
-      return songs.filter(s => s.videoId).map(mapSongToTrack);
+      const rawParams = 'EgWKAQIIAWoOEAMQBBAJEAoQBRAREBU%3D';
+      const [songs, rawData] = await Promise.all([
+        ytmusic.searchSongs(query),
+        ytmusic.constructRequest('search', { query, params: rawParams }).catch(() => null)
+      ]);
+
+      const rawArtistsMap = {};
+      if (rawData) {
+        const shelves = rawData?.contents?.tabbedSearchResultsRenderer?.tabs?.[0]
+          ?.tabRenderer?.content?.sectionListRenderer?.contents || [];
+        for (const s of shelves) {
+          const entries = s?.musicShelfRenderer?.contents || [];
+          for (const entry of entries) {
+            const r = entry?.musicResponsiveListItemRenderer;
+            if (!r) continue;
+            const cols = r.flexColumns || [];
+            const videoId = cols[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]
+              ?.navigationEndpoint?.watchEndpoint?.videoId;
+            if (!videoId) continue;
+            const allRuns = cols[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs || [];
+            const dotIdx = allRuns.findIndex(run => run.text === ' \u2022 ');
+            const artistRuns = dotIdx >= 0 ? allRuns.slice(0, dotIdx) : allRuns;
+            const artists = parseArtistsFromRuns(artistRuns);
+            if (artists.length) rawArtistsMap[videoId] = artists;
+          }
+        }
+      }
+
+      return songs.filter(s => s.videoId).map(song => {
+        const artists = rawArtistsMap[song.videoId] || null;
+        return mapSongToTrack(song, artists);
+      });
     } else {
-      const results = await ytmusic.search(query);
+      const [results, rawData] = await Promise.all([
+        ytmusic.search(query),
+        ytmusic.constructRequest('search', { query }).catch(() => null)
+      ]);
+
+      const rawArtistsMap = {};
+      if (rawData) {
+        const shelves = rawData?.contents?.tabbedSearchResultsRenderer?.tabs?.[0]
+          ?.tabRenderer?.content?.sectionListRenderer?.contents || [];
+        for (const s of shelves) {
+          const entries = s?.musicShelfRenderer?.contents || [];
+          for (const entry of entries) {
+            const r = entry?.musicResponsiveListItemRenderer;
+            if (!r) continue;
+            const cols = r.flexColumns || [];
+            const videoId = cols[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]
+              ?.navigationEndpoint?.watchEndpoint?.videoId;
+            if (!videoId) continue;
+            const allRuns = cols[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs || [];
+            const dotIdx = allRuns.findIndex(run => run.text === ' \u2022 ');
+            const artistRuns = dotIdx >= 0 ? allRuns.slice(0, dotIdx) : allRuns;
+            const artists = parseArtistsFromRuns(artistRuns);
+            if (artists.length) rawArtistsMap[videoId] = artists;
+          }
+        }
+      }
+
       return results
         .filter(r => (r.type === 'SONG' || r.type === 'VIDEO') && r.videoId)
-        .map(r => ({
-          id: r.videoId,
-          title: r.name || 'Unknown',
-          artist: r.artist?.name || 'Unknown Artist',
-          artistId: r.artist?.artistId || null,
-          thumbnail: getSquareThumbnail(r.thumbnails),
-          duration: formatDuration(r.duration),
-          durationMs: r.duration ? Math.round(r.duration * 1000) : 0,
-          url: `https://music.youtube.com/watch?v=${r.videoId}`
-        }));
+        .map(r => {
+          const artists = rawArtistsMap[r.videoId] || null;
+          const artistFields = artists
+            ? buildArtistFields(artists)
+            : {
+                artist: r.artist?.name || 'Unknown Artist',
+                artistId: r.artist?.artistId || null,
+                artists: r.artist ? [{ name: r.artist.name, id: r.artist.artistId || null }] : []
+              };
+          return {
+            id: r.videoId,
+            title: r.name || 'Unknown',
+            ...artistFields,
+            thumbnail: getSquareThumbnail(r.thumbnails),
+            duration: formatDuration(r.duration),
+            durationMs: r.duration ? Math.round(r.duration * 1000) : 0,
+            url: `https://music.youtube.com/watch?v=${r.videoId}`
+          };
+        });
     }
   } catch (err) {
     console.error('Search error:', err);
@@ -460,6 +565,7 @@ ipcMain.handle('yt:artistInfo', async (_event, artistId) => {
     let monthlyListeners = '';
     let fansAlsoLike = [];
     let livePerformances = [];
+    let rawTopSongsArtists = {};
     try {
       const rawData = await ytmusic.constructRequest('browse', { browseId: artistId });
       const header = rawData?.header?.musicImmersiveHeaderRenderer || rawData?.header?.musicVisualHeaderRenderer;
@@ -504,6 +610,26 @@ ipcMain.handle('yt:artistInfo', async (_event, artistId) => {
           }).filter(Boolean);
         }
       }
+      // Parse multi-artist data from Songs shelf
+      for (const section of sections) {
+        const shelf = section?.musicShelfRenderer;
+        if (!shelf) continue;
+        const shelfTitle = shelf?.header?.musicShelfBasicHeaderRenderer
+          ?.title?.runs?.[0]?.text?.toLowerCase() || '';
+        if (!shelfTitle.includes('song')) continue;
+        for (const item of (shelf.contents || [])) {
+          const r = item?.musicResponsiveListItemRenderer;
+          if (!r) continue;
+          const cols = r.flexColumns || [];
+          const videoId = cols[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]
+            ?.navigationEndpoint?.watchEndpoint?.videoId;
+          if (!videoId) continue;
+          const artistRuns = cols[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs || [];
+          const artists = parseArtistsFromRuns(artistRuns);
+          if (artists.length) rawTopSongsArtists[videoId] = artists;
+        }
+        break;
+      }
     } catch (_) { /* raw data extraction is best-effort */ }
 
     return {
@@ -514,7 +640,10 @@ ipcMain.handle('yt:artistInfo', async (_event, artistId) => {
       monthlyListeners,
       tags: [],
       avatar: getBestThumbnail(artist.thumbnails),
-      topSongs: (artist.topSongs || []).filter(s => s.videoId).map(mapSongToTrack),
+      topSongs: (artist.topSongs || []).filter(s => s.videoId).map(song => {
+        const artists = rawTopSongsArtists[song.videoId] || null;
+        return mapSongToTrack(song, artists);
+      }),
       topAlbums: (artist.topAlbums || []).map(a => ({
         albumId: a.albumId,
         playlistId: a.playlistId,
@@ -550,13 +679,46 @@ ipcMain.handle('yt:artistInfo', async (_event, artistId) => {
 
 ipcMain.handle('yt:albumTracks', async (_event, albumId) => {
   try {
-    const album = await ytmusic.getAlbum(albumId);
+    const [album, rawData] = await Promise.all([
+      ytmusic.getAlbum(albumId),
+      ytmusic.constructRequest('browse', { browseId: albumId }).catch(() => null)
+    ]);
+
+    const rawArtistsMap = {};
+    let albumArtists = [];
+    if (rawData) {
+      const headerRuns = rawData?.contents?.twoColumnBrowseResultsRenderer
+        ?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents?.[0]
+        ?.musicResponsiveHeaderRenderer?.straplineTextOne?.runs || [];
+      albumArtists = parseArtistsFromRuns(headerRuns);
+
+      const shelfItems = rawData?.contents?.twoColumnBrowseResultsRenderer
+        ?.secondaryContents?.sectionListRenderer?.contents?.[0]
+        ?.musicShelfRenderer?.contents || [];
+      for (const item of shelfItems) {
+        const r = item?.musicResponsiveListItemRenderer;
+        if (!r) continue;
+        const cols = r.flexColumns || [];
+        const videoId = cols[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]
+          ?.navigationEndpoint?.watchEndpoint?.videoId;
+        if (!videoId) continue;
+        const artistRuns = cols[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs || [];
+        const artists = parseArtistsFromRuns(artistRuns);
+        if (artists.length) rawArtistsMap[videoId] = artists;
+      }
+    }
+
+    const tracks = (album.songs || []).filter(s => s.videoId).map(song => {
+      const artists = rawArtistsMap[song.videoId] || (albumArtists.length ? albumArtists : null);
+      return mapSongToTrack(song, artists);
+    });
+
     return {
       name: album.name || 'Unknown Album',
       artist: album.artist?.name || 'Unknown Artist',
       year: album.year || null,
       thumbnail: getSquareThumbnail(album.thumbnails, 300),
-      tracks: (album.songs || []).filter(s => s.videoId).map(mapSongToTrack)
+      tracks
     };
   } catch (err) {
     console.error('Album tracks error:', err);
@@ -659,20 +821,48 @@ ipcMain.handle('yt:getVideoStreamUrl', async (_event, videoId, quality, premuxed
 
 ipcMain.handle('yt:getUpNexts', async (_event, videoId) => {
   try {
-    const results = await ytmusic.getUpNexts(videoId);
-    if (!Array.isArray(results)) return [];
-    return results
-      .filter(r => r.videoId)
-      .map(r => ({
-        id: r.videoId,
-        title: r.title || r.name || 'Unknown',
-        artist: r.artists || r.artist?.name || 'Unknown Artist',
-        artistId: r.artist?.artistId || null,
-        thumbnail: r.thumbnail || getSquareThumbnail(r.thumbnails || []),
-        duration: r.duration || '',
-        durationMs: 0,
-        url: `https://music.youtube.com/watch?v=${r.videoId}`
-      }));
+    const rawData = await ytmusic.constructRequest('next', {
+      videoId,
+      playlistId: `RDAMVM${videoId}`,
+      isAudioOnly: true
+    });
+
+    const contents = rawData?.contents?.singleColumnMusicWatchNextResultsRenderer
+      ?.tabbedRenderer?.watchNextTabbedResultsRenderer?.tabs?.[0]
+      ?.tabRenderer?.content?.musicQueueRenderer?.content
+      ?.playlistPanelRenderer?.contents || [];
+
+    return contents.slice(1)
+      .map(item => {
+        const r = item?.playlistPanelVideoRenderer;
+        if (!r) return null;
+        const vid = r.navigationEndpoint?.watchEndpoint?.videoId;
+        if (!vid) return null;
+
+        const allRuns = r.longBylineText?.runs || [];
+        const dotIdx = allRuns.findIndex(run => run.text === ' \u2022 ');
+        const artistRuns = dotIdx >= 0 ? allRuns.slice(0, dotIdx) : allRuns;
+        const artists = parseArtistsFromRuns(artistRuns);
+
+        const durationText = r.lengthText?.runs?.[0]?.text || '';
+        const durationParts = durationText.split(':').map(Number);
+        let durationMs = 0;
+        if (durationParts.length === 2) durationMs = (durationParts[0] * 60 + durationParts[1]) * 1000;
+        else if (durationParts.length === 3) durationMs = (durationParts[0] * 3600 + durationParts[1] * 60 + durationParts[2]) * 1000;
+
+        const thumbnail = getSquareThumbnail(r.thumbnail?.thumbnails || []);
+
+        return {
+          id: vid,
+          title: r.title?.runs?.[0]?.text || 'Unknown',
+          ...buildArtistFields(artists),
+          thumbnail,
+          duration: durationText,
+          durationMs,
+          url: `https://music.youtube.com/watch?v=${vid}`
+        };
+      })
+      .filter(Boolean);
   } catch (err) {
     console.error('getUpNexts error:', err);
     return [];

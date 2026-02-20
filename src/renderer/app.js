@@ -120,6 +120,14 @@
       targetView.style.animation = '';
     }
 
+    if (_lyricsVisible) {
+      _lyricsVisible = false;
+      lyricsPanel.classList.add('hidden');
+      lyricsPanel.classList.remove('visible');
+      btnLyrics.classList.remove('active');
+      stopLyricsSync();
+    }
+
     if (name === 'home') {
       renderHome();
     }
@@ -234,12 +242,13 @@
   }
 
   function renderTrackList(container, tracks, context) {
+    const showDuration = tracks.some(t => t.duration);
     let html = `
-      <div class="track-list-header">
+      <div class="track-list-header${showDuration ? '' : ' no-duration'}">
         <span>#</span>
         <span>Title</span>
         <span>Artist</span>
-        <span style="text-align:right">Duration</span>
+        ${showDuration ? '<span style="text-align:right">Duration</span>' : ''}
       </div>`;
 
     tracks.forEach((track, i) => {
@@ -247,7 +256,7 @@
       const isLiked = state.likedSongs.some(t => t.id === track.id);
 
       html += `
-        <div class="track-row ${isPlaying ? 'playing' : ''}" 
+        <div class="track-row ${isPlaying ? 'playing' : ''}${showDuration ? '' : ' no-duration'}"
              data-track-id="${track.id}" data-context="${context}" data-index="${i}" draggable="true">
           <div class="track-num">
             <span class="track-num-text">${isPlaying ? '♫' : i + 1}</span>
@@ -261,10 +270,8 @@
               <div class="track-title">${escapeHtml(track.title)}</div>
             </div>
           </div>
-          <div class="track-artist-col">${track.artistId
-            ? `<span class="artist-link" data-artist-id="${escapeHtml(track.artistId)}">${escapeHtml(track.artist)}</span>`
-            : escapeHtml(track.artist)}</div>
-          <div class="track-duration">${track.duration}</div>
+          <div class="track-artist-col">${renderArtistLinks(track)}</div>
+          ${showDuration ? `<div class="track-duration">${track.duration}</div>` : ''}
         </div>`;
     });
 
@@ -288,13 +295,7 @@
       });
     });
 
-    container.querySelectorAll('.artist-link').forEach(link => {
-      link.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const id = link.dataset.artistId;
-        if (id) openArtistPage(id);
-      });
-    });
+    bindArtistLinks(container);
   }
 
   function showContextMenu(e, track) {
@@ -874,14 +875,10 @@
     $('#np-title').textContent = track.title;
 
     const npArtist = $('#np-artist');
-    npArtist.textContent = track.artist;
-    if (track.artistId) {
-      npArtist.classList.add('clickable');
-      npArtist.onclick = () => openArtistPage(track.artistId);
-    } else {
-      npArtist.classList.remove('clickable');
-      npArtist.onclick = null;
-    }
+    npArtist.innerHTML = renderArtistLinks(track);
+    npArtist.classList.remove('clickable');
+    npArtist.onclick = null;
+    bindArtistLinks(npArtist);
 
     const isLiked = state.likedSongs.some(t => t.id === track.id);
     $('#np-like').classList.toggle('liked', isLiked);
@@ -1441,6 +1438,7 @@
     allQueueItems.forEach(item => {
       const track = state.queue.find(t => t.id === item.dataset.trackId);
       if (!track) return;
+      bindArtistLinks(item);
       item.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         showContextMenu(e, track);
@@ -1457,7 +1455,7 @@
         <img src="${escapeHtml(track.thumbnail)}" alt="" />
         <div class="queue-item-info">
           <div class="queue-item-title">${escapeHtml(track.title)}</div>
-          <div class="queue-item-artist">${escapeHtml(track.artist)}</div>
+          <div class="queue-item-artist">${renderArtistLinks(track)}</div>
         </div>
       </div>`;
   }
@@ -1470,7 +1468,22 @@
     renderHome();
   }
 
-  function renderHome() {
+  async function renderHome() {
+    // Backfill missing artistIds in recent tracks
+    const needsId = state.recentTracks.filter(t => t.artist && !t.artistId);
+    if (needsId.length) {
+      const uniqueNames = [...new Set(needsId.map(t => t.artist))];
+      const lookups = await Promise.all(uniqueNames.map(n => window.snowify.searchArtists(n).catch(() => [])));
+      const nameToId = {};
+      uniqueNames.forEach((name, i) => {
+        if (lookups[i]?.length) nameToId[name] = lookups[i][0].artistId;
+      });
+      let changed = false;
+      state.recentTracks.forEach(t => {
+        if (!t.artistId && nameToId[t.artist]) { t.artistId = nameToId[t.artist]; changed = true; }
+      });
+      if (changed) saveState();
+    }
     renderRecentTracks();
     renderQuickPicks();
     renderNewReleases();
@@ -1514,14 +1527,15 @@
       const seen = new Set();
       const releases = [];
 
-      results.forEach(r => {
+      results.forEach((r, i) => {
         if (r.status !== 'fulfilled' || !r.value) return;
         const info = r.value;
+        const followedArtistId = state.followedArtists[i].artistId;
         const all = [...(info.topAlbums || []), ...(info.topSingles || [])];
         all.forEach(rel => {
           if (rel.year >= currentYear && !seen.has(rel.albumId)) {
             seen.add(rel.albumId);
-            releases.push({ ...rel, artistName: info.name });
+            releases.push({ ...rel, artistName: info.name, artistId: followedArtistId });
           }
         });
       });
@@ -1549,7 +1563,7 @@
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
         </button>
         <div class="album-card-name" title="${escapeHtml(a.name)}">${escapeHtml(a.name)}</div>
-        <div class="album-card-meta">${[a.artistName || '', a.year, a.type].filter(Boolean).join(' \u00B7 ')}</div>
+        <div class="album-card-meta">${a.artistId ? `<span class="album-card-artist clickable" data-artist-id="${escapeHtml(a.artistId)}">${escapeHtml(a.artistName || '')}</span>` : escapeHtml(a.artistName || '')}${a.year ? ' \u00B7 ' + a.year : ''}${a.type ? ' \u00B7 ' + a.type : ''}</div>
       </div>
     `).join('');
 
@@ -1560,6 +1574,10 @@
         e.stopPropagation();
         const album = await window.snowify.albumTracks(albumId);
         if (album && album.tracks.length) playFromList(album.tracks, 0);
+      });
+      card.querySelector('.album-card-artist.clickable')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openArtistPage(e.currentTarget.dataset.artistId);
       });
       card.addEventListener('click', () => showAlbumDetail(albumId, meta));
       card.addEventListener('contextmenu', (e) => {
@@ -1584,7 +1602,7 @@
       <div class="track-card" data-track-id="${track.id}" draggable="true">
         <img class="card-thumb" src="${escapeHtml(track.thumbnail)}" alt="" loading="lazy" />
         <div class="card-title">${escapeHtml(track.title)}</div>
-        <div class="card-artist">${escapeHtml(track.artist)}</div>
+        <div class="card-artist">${renderArtistLinks(track)}</div>
         <button class="card-play" title="Play">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
         </button>
@@ -1596,6 +1614,7 @@
         const track = state.recentTracks.find(t => t.id === card.dataset.trackId);
         if (track) playFromList([track], 0);
       });
+      bindArtistLinks(card);
       card.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         const track = state.recentTracks.find(t => t.id === card.dataset.trackId);
@@ -1655,10 +1674,13 @@
 
     const artistCounts = {};
     allTracks.forEach(t => {
-      if (t.artistId) {
-        if (!artistCounts[t.artistId]) artistCounts[t.artistId] = { name: t.artist, artistId: t.artistId, count: 0 };
-        artistCounts[t.artistId].count++;
-      }
+      const trackArtists = t.artists?.length ? t.artists : (t.artistId ? [{ name: t.artist, id: t.artistId }] : []);
+      trackArtists.forEach(a => {
+        if (a.id) {
+          if (!artistCounts[a.id]) artistCounts[a.id] = { name: a.name, artistId: a.id, count: 0 };
+          artistCounts[a.id].count++;
+        }
+      });
     });
 
     const topArtists = Object.values(artistCounts)
@@ -1695,7 +1717,7 @@
         <div class="track-card" data-track-id="${track.id}" draggable="true">
           <img class="card-thumb" src="${escapeHtml(track.thumbnail)}" alt="" loading="lazy" />
           <div class="card-title">${escapeHtml(track.title)}</div>
-          <div class="card-artist">${escapeHtml(track.artist)}</div>
+          <div class="card-artist">${renderArtistLinks(track)}</div>
           <button class="card-play" title="Play">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
           </button>
@@ -1707,6 +1729,7 @@
           const track = recommendedSongs.find(t => t.id === card.dataset.trackId);
           if (track) playFromList([track], 0);
         });
+        bindArtistLinks(card);
         card.addEventListener('contextmenu', (e) => {
           e.preventDefault();
           const track = recommendedSongs.find(t => t.id === card.dataset.trackId);
@@ -1814,6 +1837,30 @@
     return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
+  function renderArtistLinks(track) {
+    if (track.artists?.length) {
+      return track.artists.map((a, i, arr) => {
+        const sep = i < arr.length - 1 ? ', ' : '';
+        return (a.id
+          ? `<span class="artist-link" data-artist-id="${escapeHtml(a.id)}">${escapeHtml(a.name)}</span>`
+          : escapeHtml(a.name)) + sep;
+      }).join('');
+    }
+    if (track.artistId) {
+      return `<span class="artist-link" data-artist-id="${escapeHtml(track.artistId)}">${escapeHtml(track.artist)}</span>`;
+    }
+    return escapeHtml(track.artist || 'Unknown Artist');
+  }
+
+  function bindArtistLinks(container) {
+    container.querySelectorAll('.artist-link[data-artist-id]').forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openArtistPage(link.dataset.artistId);
+      });
+    });
+  }
+
   function formatTime(s) {
     if (!s || isNaN(s)) return '0:00';
     const m = Math.floor(s / 60);
@@ -1886,7 +1933,9 @@
     const fansSection = $('#artist-fans-section');
     const fansContainer = $('#artist-fans');
 
-    avatar.src = '';
+    avatar.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+    avatar.classList.remove('loaded');
+    avatar.classList.add('shimmer');
     nameEl.textContent = 'Loading...';
     followersEl.textContent = '';
     descEl.textContent = '';
@@ -1913,6 +1962,10 @@
     followersEl.textContent = info.monthlyListeners || '';
 
     if (info.avatar) {
+      avatar.addEventListener('load', () => {
+        avatar.classList.remove('shimmer');
+        avatar.classList.add('loaded');
+      }, { once: true });
       avatar.src = info.avatar;
     }
 
