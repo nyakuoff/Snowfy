@@ -313,6 +313,11 @@ html, body {
 .tb-btn:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
 .tb-close:hover { background: #e81123; color: #fff; }
 
+/* ═══════ macOS Titlebar ═══════ */
+.platform-darwin .titlebar-drag { padding-left: 80px; }
+.platform-darwin .titlebar-controls { display: none; }
+.platform-darwin #titlebar { -webkit-app-region: drag; }
+
 /* ═══════ App Layout ═══════ */
 #app {
   display: flex;

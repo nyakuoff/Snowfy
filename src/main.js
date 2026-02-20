@@ -114,6 +114,7 @@ function mapSongToTrack(song) {
 }
 
 function createWindow() {
+  const isMac = process.platform === 'darwin';
   mainWindow = new BrowserWindow({
     width: 1500,
     height: 860,
@@ -122,6 +123,7 @@ function createWindow() {
     frame: false,
     backgroundColor: '#121212',
     titleBarStyle: 'hidden',
+    ...(isMac && { trafficLightPosition: { x: 16, y: 12 } }),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -132,6 +134,15 @@ function createWindow() {
   });
 
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+
+  // Inject platform class before first paint (avoids visual flash)
+  if (process.platform === 'darwin') {
+    mainWindow.webContents.on('dom-ready', () => {
+      mainWindow.webContents.executeJavaScript(
+        "document.documentElement.classList.add('platform-darwin');"
+      );
+    });
+  }
 
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     callback({
