@@ -1853,7 +1853,10 @@
       html += chartsData.topSongs.map((track, i) => `
         <div class="top-song-item" data-track-id="${escapeHtml(track.id)}">
           <div class="top-song-rank">${track.rank || i + 1}</div>
-          <img class="top-song-thumb" src="${escapeHtml(track.thumbnail)}" alt="" loading="lazy" />
+          <div class="top-song-thumb-wrap">
+            <img class="top-song-thumb" src="${escapeHtml(track.thumbnail)}" alt="" loading="lazy" />
+            <div class="top-song-play"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg></div>
+          </div>
           <div class="top-song-info">
             <div class="top-song-title">${escapeHtml(track.title)}</div>
             <div class="top-song-artist${track.artistId ? ' clickable' : ''}" ${track.artistId ? `data-artist-id="${escapeHtml(track.artistId)}"` : ''}>${escapeHtml(track.artist)}</div>
