@@ -724,9 +724,15 @@ ipcMain.handle('yt:albumTracks', async (_event, albumId) => {
       return mapSongToTrack(song, artists);
     });
 
+    const albumArtistFields = albumArtists.length
+      ? buildArtistFields(albumArtists)
+      : buildArtistFields(album.artist?.id
+          ? [{ name: album.artist.name, id: album.artist.id }]
+          : []);
+
     return {
       name: album.name || 'Unknown Album',
-      artist: album.artist?.name || 'Unknown Artist',
+      ...albumArtistFields,
       year: album.year || null,
       thumbnail: getSquareThumbnail(album.thumbnails, 300),
       tracks
