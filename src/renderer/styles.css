@@ -831,14 +831,11 @@ html, body {
 
 .track-list-header {
   display: grid;
-  grid-template-columns: 40px 1fr 1fr 80px;
+  grid-template-columns: 40px 1fr 1fr 32px;
   gap: 16px;
   padding: 0 16px 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   margin-bottom: 4px;
-}
-.track-list-header.no-duration {
-  grid-template-columns: 40px 1fr 1fr;
 }
 .track-list-header span {
   font-size: 11px;
@@ -850,16 +847,13 @@ html, body {
 
 .track-row {
   display: grid;
-  grid-template-columns: 40px 1fr 1fr 80px;
+  grid-template-columns: 40px 1fr 1fr 32px;
   gap: 16px;
   padding: 8px 16px;
   border-radius: var(--radius);
   align-items: center;
   cursor: pointer;
   transition: background var(--transition), transform var(--transition);
-}
-.track-row.no-duration {
-  grid-template-columns: 40px 1fr 1fr;
 }
 .track-row:hover {
   background: rgba(255, 255, 255, 0.04);
@@ -921,11 +915,57 @@ html, body {
   text-overflow: ellipsis;
 }
 
-.track-duration {
-  font-size: 13px;
+/* ── Plays column ── */
+.track-list-header.has-plays,
+.track-row.has-plays {
+  grid-template-columns: 40px 1fr 1fr 32px auto;
+}
+.track-plays {
+  font-size: 12px;
   color: var(--text-subdued);
   text-align: right;
-  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.track-like-col {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.track-like-btn {
+  opacity: 0;
+  transition: opacity var(--transition), transform 0.15s ease;
+  padding: 4px;
+  background: none;
+  border: none;
+  color: var(--text-subdued);
+  cursor: pointer;
+}
+.track-row:hover .track-like-btn,
+.track-like-btn.liked {
+  opacity: 1;
+}
+.track-like-btn:hover {
+  color: var(--text-primary);
+  transform: scale(1.2);
+}
+.track-like-btn.liked svg {
+  fill: var(--accent);
+  stroke: var(--accent);
+}
+
+/* ── Heart particle burst ── */
+.heart-particle {
+  position: fixed;
+  pointer-events: none;
+  z-index: 9999;
+  font-size: 14px;
+  color: var(--accent);
+  transform: translate(-50%, -50%) scale(var(--s, 1));
+  animation: heartBurst 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+@keyframes heartBurst {
+  0%   { opacity: 1; transform: translate(-50%, -50%) scale(var(--s, 1)) translate(0, 0); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(var(--s, 1)) translate(var(--dx), var(--dy)); }
 }
 
 .track-row-actions {
@@ -1075,6 +1115,12 @@ html, body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.np-title.clickable {
+  cursor: pointer;
+}
+.np-title.clickable:hover {
+  text-decoration: underline;
 }
 .np-artist {
   font-size: 12px;

@@ -259,13 +259,16 @@
   }
 
   function renderTrackList(container, tracks, context) {
-    const showDuration = tracks.some(t => t.duration);
+    const showPlays = tracks.some(t => t.plays);
+    const modifier = showPlays ? ' has-plays' : '';
+
     let html = `
-      <div class="track-list-header${showDuration ? '' : ' no-duration'}">
+      <div class="track-list-header${modifier}">
         <span>#</span>
         <span>Title</span>
         <span>Artist</span>
-        ${showDuration ? '<span style="text-align:right">Duration</span>' : ''}
+        <span></span>
+        ${showPlays ? '<span style="text-align:right">Plays</span>' : ''}
       </div>`;
 
     tracks.forEach((track, i) => {
@@ -273,7 +276,7 @@
       const isLiked = state.likedSongs.some(t => t.id === track.id);
 
       html += `
-        <div class="track-row ${isPlaying ? 'playing' : ''}${showDuration ? '' : ' no-duration'}"
+        <div class="track-row ${isPlaying ? 'playing' : ''}${modifier}"
              data-track-id="${track.id}" data-context="${context}" data-index="${i}" draggable="true">
           <div class="track-num">
             <span class="track-num-text">${isPlaying ? '♫' : i + 1}</span>
@@ -288,28 +291,40 @@
             </div>
           </div>
           <div class="track-artist-col">${renderArtistLinks(track)}</div>
-          ${showDuration ? `<div class="track-duration">${track.duration}</div>` : ''}
+          <div class="track-like-col">
+            <button class="track-like-btn${isLiked ? ' liked' : ''}" title="Like">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+              </svg>
+            </button>
+          </div>
+          ${showPlays ? `<div class="track-plays">${escapeHtml(track.plays || '')}</div>` : ''}
         </div>`;
     });
 
     container.innerHTML = html;
 
-    // Click + drag handlers
+    // Click + drag + like handlers
     container.querySelectorAll('.track-row').forEach(row => {
-      row.addEventListener('click', () => {
-        const idx = parseInt(row.dataset.index);
-        playFromList(tracks, idx);
-      });
+      const idx = parseInt(row.dataset.index);
+      const track = tracks[idx];
+      row.addEventListener('click', () => playFromList(tracks, idx));
       row.addEventListener('contextmenu', (e) => {
         e.preventDefault();
-        const idx = parseInt(row.dataset.index);
         showContextMenu(e, tracks[idx]);
       });
       row.addEventListener('dragstart', (e) => {
-        const idx = parseInt(row.dataset.index);
-        const track = tracks[idx];
         if (track) startTrackDrag(e, track);
       });
+      const likeBtn = row.querySelector('.track-like-btn');
+      if (likeBtn && track) {
+        likeBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const wasLiked = toggleLike(track);
+          likeBtn.classList.toggle('liked', state.likedSongs.some(t => t.id === track.id));
+          if (wasLiked) spawnHeartParticles(likeBtn);
+        });
+      }
     });
 
     bindArtistLinks(container);
@@ -889,7 +904,15 @@
     document.querySelector('#app').classList.remove('no-player');
 
     $('#np-thumbnail').src = track.thumbnail;
-    $('#np-title').textContent = track.title;
+    const npTitle = $('#np-title');
+    npTitle.textContent = track.title;
+    if (track.albumId) {
+      npTitle.classList.add('clickable');
+      npTitle.onclick = () => showAlbumDetail(track.albumId, { name: track.album, thumbnail: track.thumbnail });
+    } else {
+      npTitle.classList.remove('clickable');
+      npTitle.onclick = null;
+    }
 
     const npArtist = $('#np-artist');
     npArtist.innerHTML = renderArtistLinks(track);
@@ -940,7 +963,10 @@
   const npLike = $('#np-like');
   npLike.addEventListener('click', () => {
     const track = state.queue[state.queueIndex];
-    if (track) toggleLike(track);
+    if (track) {
+      const wasLiked = toggleLike(track);
+      if (wasLiked) spawnHeartParticles(npLike);
+    }
   });
 
   function toggleLike(track) {
@@ -957,6 +983,32 @@
     const current = state.queue[state.queueIndex];
     if (current?.id === track.id) {
       npLike.classList.toggle('liked', state.likedSongs.some(t => t.id === track.id));
+    }
+    // Return true if the track was liked (not unliked)
+    return idx < 0;
+  }
+
+  function spawnHeartParticles(originEl) {
+    const rect = originEl.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const count = 7;
+    for (let i = 0; i < count; i++) {
+      const heart = document.createElement('div');
+      heart.className = 'heart-particle';
+      heart.textContent = '\u2764';
+      const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.6;
+      const dist = 20 + Math.random() * 25;
+      const dx = Math.cos(angle) * dist;
+      const dy = Math.sin(angle) * dist - 15;
+      const scale = 0.6 + Math.random() * 0.5;
+      heart.style.left = cx + 'px';
+      heart.style.top = cy + 'px';
+      heart.style.setProperty('--dx', dx + 'px');
+      heart.style.setProperty('--dy', dy + 'px');
+      heart.style.setProperty('--s', scale);
+      document.body.appendChild(heart);
+      heart.addEventListener('animationend', () => heart.remove());
     }
   }
 
@@ -1841,7 +1893,7 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
           </button>
           <div class="album-card-name" title="${escapeHtml(a.name)}">${escapeHtml(a.name)}</div>
-          <div class="album-card-meta">${a.artistId ? `<span class="album-card-artist clickable" data-artist-id="${escapeHtml(a.artistId)}">${escapeHtml(a.artist || '')}</span>` : escapeHtml(a.artist || '')}</div>
+          <div class="album-card-meta">${renderArtistLinks(a)}</div>
         </div>
       `).join('');
       html += `</div><button class="scroll-arrow scroll-arrow-right" data-dir="right"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button></div></div>`;
@@ -1859,7 +1911,7 @@
           </div>
           <div class="top-song-info">
             <div class="top-song-title">${escapeHtml(track.title)}</div>
-            <div class="top-song-artist${track.artistId ? ' clickable' : ''}" ${track.artistId ? `data-artist-id="${escapeHtml(track.artistId)}"` : ''}>${escapeHtml(track.artist)}</div>
+            <div class="top-song-artist">${renderArtistLinks(track)}</div>
           </div>
         </div>
       `).join('');
@@ -1889,7 +1941,7 @@
             <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
           </button>
           <div class="video-card-name" title="${escapeHtml(v.title)}">${escapeHtml(v.title)}</div>
-          <div class="video-card-duration">${escapeHtml(v.artist)}</div>
+          <div class="video-card-duration">${renderArtistLinks(v)}</div>
         </div>
       `).join('');
       html += `</div><button class="scroll-arrow scroll-arrow-right" data-dir="right"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button></div></div>`;
@@ -1925,10 +1977,7 @@
       const track = topSongsList.find(t => t.id === item.dataset.trackId);
       if (!track) return;
       item.addEventListener('click', () => playFromList(topSongsList, topSongsList.indexOf(track)));
-      item.querySelector('.top-song-artist.clickable')?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        openArtistPage(e.currentTarget.dataset.artistId);
-      });
+      bindArtistLinks(item);
       item.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         showContextMenu(e, track);
@@ -1944,6 +1993,7 @@
     content.querySelectorAll('.music-video-scroll .video-card').forEach(card => {
       const v = (exploreData?.newMusicVideos || []).find(t => t.id === card.dataset.videoId);
       if (v) {
+        bindArtistLinks(card);
         card.addEventListener('click', () => playFromList([v], 0));
         card.addEventListener('contextmenu', (e) => {
           e.preventDefault();
@@ -2029,10 +2079,7 @@
         const album = await window.snowify.albumTracks(albumId);
         if (album?.tracks?.length) playFromList(album.tracks, 0);
       });
-      card.querySelector('.album-card-artist.clickable')?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        openArtistPage(e.currentTarget.dataset.artistId);
-      });
+      bindArtistLinks(card);
       card.addEventListener('click', () => showAlbumDetail(albumId, meta));
       card.addEventListener('contextmenu', (e) => {
         e.preventDefault();
@@ -2212,10 +2259,11 @@
 
     heroName.textContent = album.name || albumMeta?.name || 'Album';
     const parts = [];
-    if (album.artist) parts.push(album.artist);
-    if (albumMeta?.year) parts.push(albumMeta.year);
+    if (album.artist) parts.push(renderArtistLinks(album));
+    if (albumMeta?.year) parts.push(escapeHtml(String(albumMeta.year)));
     parts.push(`${album.tracks.length} song${album.tracks.length !== 1 ? 's' : ''}`);
-    heroMeta.textContent = parts.join(' \u00B7 ');
+    heroMeta.innerHTML = parts.join(' \u00B7 ');
+    bindArtistLinks(heroMeta);
     if (album.thumbnail) heroCover.src = album.thumbnail;
 
     renderTrackList(tracksContainer, album.tracks, 'album');
