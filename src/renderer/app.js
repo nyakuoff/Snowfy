@@ -156,7 +156,7 @@
   floatingSearch.addEventListener('click', () => switchView('search'));
 
   function updateFloatingSearch() {
-    const show = ['home', 'explore', 'library', 'artist', 'album'].includes(state.currentView);
+    const show = ['home', 'explore', 'library', 'artist', 'album', 'playlist'].includes(state.currentView);
     floatingSearch.classList.toggle('hidden', !show);
   }
 
