@@ -3514,11 +3514,22 @@ html, body {
 body.audio-playing .eq-bar { animation-play-state: running; }
 
 /* Sidebar now-playing icon */
-.now-playing-icon { display: none; margin-left: auto; flex-shrink: 0; color: var(--accent); }
+.now-playing-icon { display: none; margin-left: auto; flex-shrink: 0; color: var(--accent); overflow: visible; }
 .playlist-item.playing .now-playing-icon { display: block; }
 .playlist-item.playing .playlist-name { color: var(--accent); }
+@keyframes waveExpand {
+  0% { opacity: 0; }
+  15% { opacity: 1; }
+  30% { opacity: 0; }
+  48% { opacity: 1; }
+  63% { opacity: 0; }
+  80% { opacity: 1; }
+  100% { opacity: 1; }
+}
+.now-playing-icon.animate-waves .wave-1 { animation: waveExpand 3.5s ease-in-out forwards; }
+.now-playing-icon.animate-waves .wave-2 { animation: waveExpand 3.5s ease-in-out 0.15s forwards; }
 
 /* Accessibility */
 @media (prefers-reduced-motion: reduce) {
-  .eq-bar { animation: none !important; }
+  .eq-bar, .sound-wave { animation: none !important; opacity: 1 !important; }
 }

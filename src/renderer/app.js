@@ -1221,8 +1221,17 @@
 
   function updatePlaylistHighlight() {
     $$('.playlist-item').forEach(item => {
-      item.classList.toggle('playing',
-        state.playingPlaylistId != null && item.dataset.playlist === state.playingPlaylistId);
+      const isPlaying = state.playingPlaylistId != null && item.dataset.playlist === state.playingPlaylistId;
+      const wasPlaying = item.classList.contains('playing');
+      item.classList.toggle('playing', isPlaying);
+      if (isPlaying && !wasPlaying) {
+        const icon = item.querySelector('.now-playing-icon');
+        if (icon) {
+          icon.classList.remove('animate-waves');
+          void icon.offsetWidth;
+          icon.classList.add('animate-waves');
+        }
+      }
     });
   }
 
@@ -1382,7 +1391,7 @@
           <span class="playlist-name">Liked Songs</span>
           <span class="playlist-count">${state.likedSongs.length} song${state.likedSongs.length !== 1 ? 's' : ''}</span>
         </div>
-        <svg class="now-playing-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M10.016 1.125A.75.75 0 0 0 8.99.85l-4.2 3.43H1.75A.75.75 0 0 0 1 5.03v5.94a.75.75 0 0 0 .75.75h3.04l4.2 3.43a.75.75 0 0 0 1.026-.275.75.75 0 0 0 .1-.375V1.5a.75.75 0 0 0-.1-.375z"/><path d="M13.05 3.17a.75.75 0 0 0-.917 1.19 4.356 4.356 0 0 1 0 7.28.75.75 0 0 0 .918 1.19 5.856 5.856 0 0 0 0-9.66z"/></svg>
+        <svg class="now-playing-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M10.016 1.125A.75.75 0 0 0 8.99.85l-4.2 3.43H1.75A.75.75 0 0 0 1 5.03v5.94a.75.75 0 0 0 .75.75h3.04l4.2 3.43a.75.75 0 0 0 1.026-.275.75.75 0 0 0 .1-.375V1.5a.75.75 0 0 0-.1-.375z"/><path class="sound-wave wave-1" opacity="0" d="M12.25 3.17a.75.75 0 0 0-.917 1.19 3.56 3.56 0 0 1 0 7.28.75.75 0 0 0 .918 1.19 5.06 5.06 0 0 0 0-9.66z"/><path class="sound-wave wave-2" opacity="0" d="M14.2 1.5a.75.75 0 0 0-.917 1.19 5.96 5.96 0 0 1 0 10.62.75.75 0 0 0 .918 1.19 7.46 7.46 0 0 0 0-13z"/></svg>
       </div>`;
 
     state.playlists.forEach(pl => {
@@ -1395,7 +1404,7 @@
             <span class="playlist-name">${escapeHtml(pl.name)}</span>
             <span class="playlist-count">${pl.tracks.length} song${pl.tracks.length !== 1 ? 's' : ''}</span>
           </div>
-          <svg class="now-playing-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M10.016 1.125A.75.75 0 0 0 8.99.85l-4.2 3.43H1.75A.75.75 0 0 0 1 5.03v5.94a.75.75 0 0 0 .75.75h3.04l4.2 3.43a.75.75 0 0 0 1.026-.275.75.75 0 0 0 .1-.375V1.5a.75.75 0 0 0-.1-.375z"/><path d="M13.05 3.17a.75.75 0 0 0-.917 1.19 4.356 4.356 0 0 1 0 7.28.75.75 0 0 0 .918 1.19 5.856 5.856 0 0 0 0-9.66z"/></svg>
+          <svg class="now-playing-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M10.016 1.125A.75.75 0 0 0 8.99.85l-4.2 3.43H1.75A.75.75 0 0 0 1 5.03v5.94a.75.75 0 0 0 .75.75h3.04l4.2 3.43a.75.75 0 0 0 1.026-.275.75.75 0 0 0 .1-.375V1.5a.75.75 0 0 0-.1-.375z"/><path class="sound-wave wave-1" opacity="0" d="M12.25 3.17a.75.75 0 0 0-.917 1.19 3.56 3.56 0 0 1 0 7.28.75.75 0 0 0 .918 1.19 5.06 5.06 0 0 0 0-9.66z"/><path class="sound-wave wave-2" opacity="0" d="M14.2 1.5a.75.75 0 0 0-.917 1.19 5.96 5.96 0 0 1 0 10.62.75.75 0 0 0 .918 1.19 7.46 7.46 0 0 0 0-13z"/></svg>
         </div>`;
     });
 
