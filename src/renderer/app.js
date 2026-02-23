@@ -2650,13 +2650,17 @@
     // Save/remove toggle button
     const saveBtn = $('#btn-album-save');
     saveBtn.style.display = '';
-    const updateSaveBtn = () => {
+    const updateSaveBtn = (animate) => {
       const isSaved = state.playlists.some(p => p.externalId === playlistId);
       saveBtn.title = isSaved ? 'Remove from library' : 'Save to library';
       saveBtn.classList.toggle('saved', isSaved);
       saveBtn.innerHTML = isSaved
-        ? '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+        ? '<span class="save-burst"></span><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
         : '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+      if (animate === 'save') {
+        saveBtn.classList.add('saving');
+        saveBtn.addEventListener('animationend', () => saveBtn.classList.remove('saving'), { once: true });
+      }
     };
     updateSaveBtn();
     saveBtn.onclick = () => {
@@ -2664,18 +2668,21 @@
       if (existing) {
         state.playlists = state.playlists.filter(p => p.externalId !== playlistId);
         saveBtn.classList.add('unsaving');
-        saveBtn.addEventListener('animationend', () => saveBtn.classList.remove('unsaving'), { once: true });
+        saveBtn.addEventListener('animationend', () => {
+          saveBtn.classList.remove('unsaving');
+          updateSaveBtn();
+        }, { once: true });
         showToast(`Removed "${meta?.name || 'Playlist'}" from library`);
       } else {
         const name = meta?.name || 'Imported Playlist';
         const pl = createPlaylist(name);
         pl.externalId = playlistId;
         pl.tracks = tracks;
+        updateSaveBtn('save');
         showToast(`Saved "${name}" with ${tracks.length} songs`);
       }
       saveState();
       renderPlaylists();
-      updateSaveBtn();
     };
   }
 

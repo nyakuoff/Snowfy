@@ -2100,20 +2100,62 @@ html, body {
   background: var(--accent);
   color: #000;
   border-radius: 50%;
-  animation: save-pop .3s cubic-bezier(.175,.885,.32,1.275);
+  position: relative;
 }
 .playlist-action-btn.saved:hover { background: var(--accent-hover, var(--accent)); color: #000; }
-@keyframes save-pop {
-  0% { transform: scale(0.6); }
-  50% { transform: scale(1.15); }
+/* Check stroke draw animation */
+.playlist-action-btn.saved svg polyline {
+  stroke-dasharray: 30;
+  stroke-dashoffset: 30;
+  animation: check-draw .35s .15s ease-out forwards;
+}
+@keyframes check-draw {
+  to { stroke-dashoffset: 0; }
+}
+/* Elastic scale on save */
+.playlist-action-btn.saving {
+  animation: save-elastic .5s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes save-elastic {
+  0% { transform: scale(0); }
+  40% { transform: scale(1.25); }
+  70% { transform: scale(0.9); }
   100% { transform: scale(1); }
 }
+/* Particle burst */
+.playlist-action-btn .save-burst {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: 50%;
+}
+.playlist-action-btn .save-burst::before,
+.playlist-action-btn .save-burst::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  opacity: 0;
+}
+.playlist-action-btn.saving .save-burst::before {
+  animation: burst-ring .6s ease-out forwards;
+}
+.playlist-action-btn.saving .save-burst::after {
+  animation: burst-ring .6s .1s ease-out forwards;
+}
+@keyframes burst-ring {
+  0% { transform: scale(0.5); opacity: 1; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+/* Fade out on unsave */
 .playlist-action-btn.unsaving {
-  animation: save-unpop .25s ease-out;
+  animation: save-fadeout .3s ease-out;
 }
-@keyframes save-unpop {
-  0% { transform: scale(1.1); }
-  100% { transform: scale(1); }
+@keyframes save-fadeout {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.5; }
+  100% { transform: scale(0.8); opacity: 0; }
 }
 
 /* ═══════ Settings Page ═══════ */
