@@ -33,7 +33,7 @@ A desktop music player built with Electron that streams audio from YouTube Music
 |---|---|
 | ![Home](assets/screenshots/home.png) | ![Artist](assets/screenshots/artist.png) |
 | ![Lyrics](assets/screenshots/lyrics.png) | ![Playlist](assets/screenshots/playlist.png) |
-| ![Login](assets/screenshots/login.png) | ![Discord RPC](assets/screenshots/discord-rpc.png) |
+| ![Explore](assets/screenshots/explore.png) | ![Discord RPC](assets/screenshots/discord-rpc.png) |
 
 ## Getting Started
 
