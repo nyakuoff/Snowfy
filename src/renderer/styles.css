@@ -2103,8 +2103,8 @@ html, body {
   position: relative;
 }
 .playlist-action-btn.saved:hover { background: var(--accent-hover, var(--accent)); color: #000; }
-/* Check stroke draw animation — only on save click, not on page load */
-.playlist-action-btn.saving svg polyline {
+/* Check stroke draw animation */
+.playlist-action-btn.saved svg polyline {
   stroke-dasharray: 30;
   stroke-dashoffset: 30;
   animation: check-draw .35s .15s ease-out forwards;
