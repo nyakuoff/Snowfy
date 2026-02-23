@@ -577,6 +577,7 @@
           const wasLiked = toggleLike(track);
           likeBtn.classList.toggle('liked', state.likedSongs.some(t => t.id === track.id));
           if (wasLiked) spawnHeartParticles(likeBtn);
+          else spawnBrokenHeart(likeBtn);
         });
       }
     });
@@ -1233,6 +1234,7 @@
     if (track) {
       const wasLiked = toggleLike(track);
       if (wasLiked) spawnHeartParticles(npLike);
+      else spawnBrokenHeart(npLike);
     }
   });
 
@@ -1277,6 +1279,17 @@
       document.body.appendChild(heart);
       heart.addEventListener('animationend', () => heart.remove());
     }
+  }
+
+  function spawnBrokenHeart(originEl) {
+    const rect = originEl.getBoundingClientRect();
+    const el = document.createElement('div');
+    el.className = 'broken-heart';
+    el.textContent = '\uD83D\uDC94';
+    el.style.left = rect.left + rect.width / 2 + 'px';
+    el.style.top = rect.top + rect.height / 2 + 'px';
+    document.body.appendChild(el);
+    el.addEventListener('animationend', () => el.remove());
   }
 
   function updateLikedCount() {

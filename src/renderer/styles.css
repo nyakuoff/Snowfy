@@ -1064,6 +1064,21 @@ html, body {
   100% { opacity: 0; transform: translate(-50%, -50%) scale(var(--s, 1)) translate(var(--dx), var(--dy)); }
 }
 
+/* ── Broken heart unlike ── */
+.broken-heart {
+  position: fixed;
+  pointer-events: none;
+  z-index: 9999;
+  font-size: 18px;
+  transform: translate(-50%, -50%);
+  animation: brokenHeartFloat 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+@keyframes brokenHeartFloat {
+  0%   { opacity: 1; transform: translate(-50%, -50%) scale(0.5); }
+  30%  { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+  100% { opacity: 0; transform: translate(-50%, calc(-50% - 24px)) scale(1); }
+}
+
 .track-row-actions {
   display: flex;
   gap: 4px;
