@@ -601,6 +601,7 @@
       <div class="context-menu-item" data-action="play-next">Play Next</div>
       <div class="context-menu-item" data-action="add-queue">Add to Queue</div>
       <div class="context-menu-divider"></div>
+      <div class="context-menu-item" data-action="start-radio">Start Radio</div>
       <div class="context-menu-item" data-action="watch-video">Watch Video</div>
       <div class="context-menu-item" data-action="like">${isLiked ? 'Unlike' : 'Like'}</div>
       ${playlistSection}
@@ -631,7 +632,7 @@
       });
     }
 
-    menu.addEventListener('click', (ev) => {
+    menu.addEventListener('click', async (ev) => {
       const item = ev.target.closest('[data-action]');
       if (!item) return;
       const action = item.dataset.action;
@@ -653,6 +654,16 @@
         case 'watch-video':
           openVideoPlayer(track.id, track.title, track.artist);
           break;
+        case 'start-radio': {
+          const upNexts = await window.snowify.getUpNexts(track.id);
+          if (upNexts.length) {
+            playFromList([track, ...upNexts.filter(t => t.id !== track.id)], 0);
+            showToast('Radio started');
+          } else {
+            showToast('Could not start radio');
+          }
+          break;
+        }
         case 'like': toggleLike(track); break;
         case 'add-to-playlist':
           addToPlaylist(item.dataset.pid, track);
@@ -1589,6 +1600,7 @@
       <div class="context-menu-item" data-action="add-queue">Add to Queue</div>
       <div class="context-menu-divider"></div>
       <div class="context-menu-item" data-action="like">${liked ? 'Unlike' : 'Like'}</div>
+      <div class="context-menu-item" data-action="start-radio">Start Radio</div>
       <div class="context-menu-divider"></div>
       <div class="context-menu-item" data-action="remove">Remove from ${isLiked ? 'Liked Songs' : 'playlist'}</div>
       ${!isLiked && idx > 0 ? '<div class="context-menu-item" data-action="move-up">Move up</div>' : ''}
@@ -1602,7 +1614,7 @@
     if (rect.right > window.innerWidth) menu.style.left = (window.innerWidth - rect.width - 8) + 'px';
     if (rect.bottom > window.innerHeight) menu.style.top = (window.innerHeight - rect.height - 8) + 'px';
 
-    menu.addEventListener('click', (ev) => {
+    menu.addEventListener('click', async (ev) => {
       const item = ev.target.closest('.context-menu-item');
       if (!item) return;
       const action = item.dataset.action;
@@ -1615,6 +1627,16 @@
           break;
         case 'add-queue': state.queue.push(track); showToast('Added to queue'); break;
         case 'like': toggleLike(track); break;
+        case 'start-radio': {
+          const upNexts = await window.snowify.getUpNexts(track.id);
+          if (upNexts.length) {
+            playFromList([track, ...upNexts.filter(t => t.id !== track.id)], 0);
+            showToast('Radio started');
+          } else {
+            showToast('Could not start radio');
+          }
+          break;
+        }
         case 'remove':
           if (isLiked) {
             state.likedSongs = state.likedSongs.filter(t => t.id !== track.id);
