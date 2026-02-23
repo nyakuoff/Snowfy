@@ -1069,7 +1069,6 @@ html, body {
   position: fixed;
   pointer-events: none;
   z-index: 9999;
-  font-size: 18px;
   transform: translate(-50%, -50%);
   animation: brokenHeartFloat 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
