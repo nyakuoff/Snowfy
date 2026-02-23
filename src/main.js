@@ -234,44 +234,7 @@ function checkMacYtDlp() {
     return; // brew exists — don't fall through to pip (user can retry)
   }
 
-  // Try auto-install with pip3 (use --user so it goes to ~/Library/Python/X.Y/bin/)
-  const hasPip = (() => { try { execSync('pip3 --version', { stdio: 'ignore', timeout: 5000 }); return true; } catch (_) { return false; } })();
-  if (hasPip) {
-    const response = dialog.showMessageBoxSync(mainWindow, {
-      type: 'info',
-      title: 'First Time Setup',
-      message: 'Installing yt-dlp...',
-      detail: 'yt-dlp is required for audio streaming. Python was detected on your system.\n\nClick "Install" to install it automatically via pip.',
-      buttons: ['Install', 'Cancel'],
-      defaultId: 0,
-      noLink: true
-    });
-    if (response === 0) {
-      try {
-        execSync('pip3 install --user yt-dlp', { timeout: 120000, stdio: 'pipe' });
-      } catch (_) {}
-      if (verifyYtDlp()) {
-        dialog.showMessageBoxSync(mainWindow, {
-          type: 'info',
-          title: 'Setup Complete',
-          message: 'yt-dlp installed successfully!',
-          detail: 'Snowify is ready to use.',
-          buttons: ['OK']
-        });
-        return;
-      }
-      dialog.showMessageBoxSync(mainWindow, {
-        type: 'error',
-        title: 'Installation Failed',
-        message: 'Could not install yt-dlp via pip.',
-        detail: 'Please try manually in Terminal:\n\npip3 install --user yt-dlp',
-        buttons: ['OK']
-      });
-    }
-    // Fall through to manual instructions
-  }
-
-  // No package manager found or install failed — show manual instructions
+  // No brew — show manual instructions to install Homebrew first
   const response = dialog.showMessageBoxSync(mainWindow, {
     type: 'warning',
     title: 'yt-dlp Not Found',
