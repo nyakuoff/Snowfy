@@ -235,7 +235,7 @@
           <img class="suggestion-thumb" src="${escapeHtml(item.thumbnail || '')}" alt="" />
           <div class="suggestion-info">
             <div class="suggestion-title">${escapeHtml(item.title)}</div>
-            <div class="suggestion-subtitle">Song \u00b7 ${escapeHtml(item.artist || '')}</div>
+            <div class="suggestion-subtitle">Song \u00b7 ${renderArtistLinks(item)}</div>
           </div>
         </div>`;
       }
@@ -247,6 +247,18 @@
       </div>`;
     }).join('');
     searchSuggestions.classList.remove('hidden');
+
+    // Bind clickable artist links inside song suggestions
+    bindArtistLinks(searchSuggestions);
+    searchSuggestions.querySelectorAll('.artist-link[data-artist-id]').forEach(link => {
+      link.addEventListener('click', () => {
+        const q = searchInput.value.trim();
+        if (q) addToSearchHistory(q);
+        searchInput.value = '';
+        searchClear.classList.add('hidden');
+        closeSuggestions();
+      });
+    });
 
     // Bind click handlers
     $$('.search-suggestion-item', searchSuggestions).forEach(el => {
