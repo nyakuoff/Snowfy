@@ -868,6 +868,7 @@ ipcMain.handle('yt:artistInfo', async (_event, artistId) => {
     let banner = '';
     let fansAlsoLike = [];
     let livePerformances = [];
+    let featuredOn = [];
     let rawTopSongsArtists = {};
     let rawTopSongsPlays = {};
     try {
@@ -917,6 +918,18 @@ ipcMain.handle('yt:artistInfo', async (_event, artistId) => {
               artistId: artistId,
               thumbnail: getBestThumbnail(r?.thumbnailRenderer?.musicThumbnailRenderer?.thumbnail?.thumbnails || []),
               duration: ''
+            };
+          }).filter(Boolean);
+        } else if (title.includes('featured on')) {
+          featuredOn = (carousel.contents || []).map(item => {
+            const r = item?.musicTwoRowItemRenderer;
+            if (!r) return null;
+            const playlistId = r?.navigationEndpoint?.browseEndpoint?.browseId || '';
+            if (!playlistId) return null;
+            return {
+              playlistId,
+              name: r?.title?.runs?.[0]?.text || 'Unknown Playlist',
+              thumbnail: getSquareThumbnail(r?.thumbnailRenderer?.musicThumbnailRenderer?.thumbnail?.thumbnails || [], 300)
             };
           }).filter(Boolean);
         }
@@ -982,11 +995,49 @@ ipcMain.handle('yt:artistInfo', async (_event, artistId) => {
         duration: formatDuration(v.duration)
       })),
       fansAlsoLike,
-      livePerformances
+      livePerformances,
+      featuredOn
     };
   } catch (err) {
     console.error('Artist info error:', err);
     return null;
+  }
+});
+
+ipcMain.handle('yt:searchPlaylists', async (_event, query) => {
+  try {
+    const playlists = await ytmusic.searchPlaylists(query);
+    return (playlists || []).map(p => ({
+      playlistId: p.playlistId,
+      name: p.name,
+      artist: p.artist?.name || '',
+      thumbnail: getSquareThumbnail(p.thumbnails, 300)
+    }));
+  } catch (err) {
+    console.error('Search playlists error:', err);
+    return [];
+  }
+});
+
+ipcMain.handle('yt:getPlaylistVideos', async (_event, playlistId) => {
+  try {
+    const videos = await ytmusic.getPlaylistVideos(playlistId);
+    return (videos || []).filter(v => v.videoId).map(v => ({
+      id: v.videoId,
+      title: v.name || 'Unknown',
+      artist: v.artist?.name || 'Unknown Artist',
+      artistId: v.artist?.artistId || null,
+      artists: v.artist ? [{ name: v.artist.name, id: v.artist.artistId || null }] : [],
+      album: v.album?.name || null,
+      albumId: v.album?.albumId || null,
+      thumbnail: getSquareThumbnail(v.thumbnails),
+      duration: formatDuration(v.duration),
+      durationMs: v.duration ? Math.round(v.duration * 1000) : 0,
+      url: `https://music.youtube.com/watch?v=${v.videoId}`
+    }));
+  } catch (err) {
+    console.error('Get playlist videos error:', err);
+    return [];
   }
 });
 

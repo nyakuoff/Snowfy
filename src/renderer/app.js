@@ -2557,6 +2557,38 @@
     };
   }
 
+  async function showExternalPlaylistDetail(playlistId, meta) {
+    switchView('album');
+
+    const heroName = $('#album-hero-name');
+    const heroMeta = $('#album-hero-meta');
+    const heroCover = $('#album-hero-img');
+    const heroType = $('#album-hero-type');
+    const tracksContainer = $('#album-tracks');
+
+    heroName.textContent = meta?.name || 'Loading...';
+    heroMeta.textContent = '';
+    heroType.textContent = 'PLAYLIST';
+    heroCover.src = meta?.thumbnail || '';
+    tracksContainer.innerHTML = `<div class="loading"><div class="spinner"></div></div>`;
+
+    const tracks = await window.snowify.getPlaylistVideos(playlistId);
+    if (!tracks?.length) {
+      tracksContainer.innerHTML = `<div class="empty-state"><p>Could not load playlist.</p></div>`;
+      return;
+    }
+
+    heroMeta.textContent = `${tracks.length} song${tracks.length !== 1 ? 's' : ''}`;
+
+    renderTrackList(tracksContainer, tracks, 'playlist');
+
+    $('#btn-album-play-all').onclick = () => playFromList(tracks, 0);
+    $('#btn-album-shuffle').onclick = () => {
+      const shuffled = [...tracks].sort(() => Math.random() - 0.5);
+      playFromList(shuffled, 0);
+    };
+  }
+
   async function openArtistPage(artistId) {
     if (!artistId) return;
     switchView('artist');
@@ -2577,6 +2609,8 @@
     const liveContainer = $('#artist-live');
     const fansSection = $('#artist-fans-section');
     const fansContainer = $('#artist-fans');
+    const featuredSection = $('#artist-featured-section');
+    const featuredContainer = $('#artist-featured');
 
     avatar.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
     avatar.classList.remove('loaded');
@@ -2591,11 +2625,13 @@
     videosSection.style.display = 'none';
     liveSection.style.display = 'none';
     fansSection.style.display = 'none';
+    featuredSection.style.display = 'none';
     popularContainer.innerHTML = `<div class="loading"><div class="spinner"></div></div>`;
     discographyContainer.innerHTML = '';
     videosContainer.innerHTML = '';
     liveContainer.innerHTML = '';
     fansContainer.innerHTML = '';
+    featuredContainer.innerHTML = '';
 
     const info = await window.snowify.artistInfo(artistId);
 
@@ -2604,6 +2640,9 @@
       popularContainer.innerHTML = `<div class="empty-state"><p>Could not load artist info.</p></div>`;
       return;
     }
+
+    // Fire playlist search in background (don't block rest of render)
+    const searchPlaylistsPromise = window.snowify.searchPlaylists(info.name).catch(() => []);
 
     nameEl.textContent = info.name;
     followersEl.textContent = info.monthlyListeners || '';
@@ -2787,6 +2826,46 @@
           const id = card.dataset.artistId;
           if (id) openArtistPage(id);
         });
+      });
+    }
+
+    // Playlists section: merge Featured On + searchPlaylists, deduplicate
+    const featuredOn = (info.featuredOn || []).map(p => ({ ...p, subtitle: 'Featured on' }));
+    const searched = (await searchPlaylistsPromise) || [];
+
+    const seenPl = new Set();
+    const allPlaylists = [...featuredOn, ...searched].filter(p => {
+      if (!p.playlistId || seenPl.has(p.playlistId)) return false;
+      seenPl.add(p.playlistId);
+      return true;
+    });
+
+    if (allPlaylists.length) {
+      featuredSection.style.display = '';
+      featuredContainer.innerHTML = allPlaylists.map(p => `
+        <div class="album-card" data-playlist-id="${escapeHtml(p.playlistId)}">
+          <img class="album-card-cover" src="${escapeHtml(p.thumbnail)}" alt="" loading="lazy" />
+          <button class="album-card-play" title="Play">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
+          </button>
+          <div class="album-card-name" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</div>
+          <div class="album-card-meta">${escapeHtml(p.subtitle || 'Playlist')}</div>
+        </div>
+      `).join('');
+
+      addScrollArrows(featuredContainer);
+      featuredContainer.querySelectorAll('.album-card').forEach(card => {
+        const pid = card.dataset.playlistId;
+        const meta = allPlaylists.find(p => p.playlistId === pid);
+        card.querySelector('.album-card-play').addEventListener('click', async (e) => {
+          e.stopPropagation();
+          try {
+            const tracks = await window.snowify.getPlaylistVideos(pid);
+            if (tracks?.length) playFromList(tracks, 0);
+            else showToast('Could not load playlist');
+          } catch { showToast('Could not load playlist'); }
+        });
+        card.addEventListener('click', () => showExternalPlaylistDetail(pid, meta));
       });
     }
 
