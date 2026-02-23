@@ -70,7 +70,7 @@ jobs:
           path: dist/*.exe
 
   build-macos:
-    runs-on: macos-latest
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
 
