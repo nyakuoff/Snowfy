@@ -1398,14 +1398,16 @@
       });
 
       // Right-click context menu for playlists in sidebar
-      if (item.dataset.playlist !== 'liked') {
-        item.addEventListener('contextmenu', (e) => {
-          e.preventDefault();
-          const pl = state.playlists.find(p => p.id === item.dataset.playlist);
-          if (!pl) return;
-          showSidebarPlaylistMenu(e, pl);
-        });
-      }
+      item.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        const pid = item.dataset.playlist;
+        if (pid === 'liked') {
+          showSidebarPlaylistMenu(e, { id: 'liked', name: 'Liked Songs', tracks: state.likedSongs }, true);
+        } else {
+          const pl = state.playlists.find(p => p.id === pid);
+          if (pl) showSidebarPlaylistMenu(e, pl, false);
+        }
+      });
 
       // Drop target for drag-and-drop
       item.addEventListener('dragover', (e) => {
@@ -1428,21 +1430,24 @@
     });
   }
 
-  function showSidebarPlaylistMenu(e, playlist) {
+  function showSidebarPlaylistMenu(e, playlist, isLiked = false) {
     removeContextMenu();
     const menu = document.createElement('div');
     menu.className = 'context-menu';
     menu.style.left = e.clientX + 'px';
     menu.style.top = e.clientY + 'px';
 
-    menu.innerHTML = `
-      <div class="context-menu-item" data-action="play">Play</div>
-      <div class="context-menu-item" data-action="shuffle">Shuffle play</div>
+    const manageHtml = isLiked ? '' : `
       <div class="context-menu-divider"></div>
       <div class="context-menu-item" data-action="change-cover">Change cover</div>
       ${playlist.coverImage ? '<div class="context-menu-item" data-action="remove-cover">Remove cover</div>' : ''}
       <div class="context-menu-item" data-action="rename">Rename</div>
-      <div class="context-menu-item" data-action="delete" style="color:var(--red)">Delete</div>
+      <div class="context-menu-item" data-action="delete" style="color:var(--red)">Delete</div>`;
+
+    menu.innerHTML = `
+      <div class="context-menu-item" data-action="play">Play</div>
+      <div class="context-menu-item" data-action="shuffle">Shuffle play</div>
+      ${manageHtml}
     `;
 
     document.body.appendChild(menu);
