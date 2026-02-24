@@ -78,6 +78,7 @@
 [data-theme="light"] .icon-btn:hover { color: var(--text-primary); }
 [data-theme="light"] #queue-panel { border-left-color: rgba(0, 0, 0, 0.08); }
 [data-theme="light"] .queue-item:hover { background: rgba(0, 0, 0, 0.04); }
+[data-theme="light"] .queue-item.active { background: var(--accent-dim); }
 [data-theme="light"] .queue-item.playing { background: rgba(0, 0, 0, 0.06); }
 [data-theme="light"] .queue-clear-btn:hover { background: rgba(0, 0, 0, 0.06); }
 [data-theme="light"] .album-card { background: var(--bg-card); border-color: rgba(0, 0, 0, 0.06); }
@@ -1478,7 +1479,7 @@ html, body {
   justify-content: space-between;
   margin-bottom: 8px;
 }
-.queue-section-header h4 { margin-bottom: 0; }
+.queue-section .queue-section-header h4 { margin-bottom: 0; }
 .queue-clear-btn {
   background: none;
   border: none;
