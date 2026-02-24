@@ -4651,6 +4651,84 @@
       }
     });
 
+    // ─── Auto Updater UI ───
+    (async () => {
+      const version = await window.snowify.getVersion();
+      $('#app-version-label').textContent = `v${version}`;
+    })();
+
+    const btnCheckUpdate = $('#btn-check-update');
+    const btnInstallUpdate = $('#btn-install-update');
+    const updateStatusRow = $('#update-status-row');
+    const updateStatusLabel = $('#update-status-label');
+    const updateStatusDesc = $('#update-status-desc');
+
+    btnCheckUpdate.addEventListener('click', async () => {
+      btnCheckUpdate.disabled = true;
+      btnCheckUpdate.textContent = 'Checking...';
+      updateStatusRow.style.display = '';
+      updateStatusLabel.textContent = 'Checking for updates...';
+      updateStatusDesc.textContent = '';
+      btnInstallUpdate.style.display = 'none';
+      await window.snowify.checkForUpdates();
+      setTimeout(() => {
+        btnCheckUpdate.disabled = false;
+        btnCheckUpdate.textContent = 'Check for updates';
+      }, 3000);
+    });
+
+    btnInstallUpdate.addEventListener('click', () => {
+      btnInstallUpdate.disabled = true;
+      btnInstallUpdate.textContent = 'Downloading...';
+      window.snowify.installUpdate();
+    });
+
+    window.snowify.onUpdateStatus((data) => {
+      updateStatusRow.style.display = '';
+      switch (data.status) {
+        case 'checking':
+          updateStatusLabel.textContent = 'Checking for updates...';
+          updateStatusDesc.textContent = '';
+          btnInstallUpdate.style.display = 'none';
+          break;
+        case 'available':
+          updateStatusLabel.textContent = `Update available: v${data.version}`;
+          updateStatusDesc.textContent = 'A new version is ready to download.';
+          btnInstallUpdate.style.display = '';
+          btnInstallUpdate.disabled = false;
+          btnInstallUpdate.textContent = 'Download & Install';
+          showToast(`Update v${data.version} available`);
+          break;
+        case 'up-to-date':
+          updateStatusLabel.textContent = 'You\u2019re up to date!';
+          updateStatusDesc.textContent = '';
+          btnInstallUpdate.style.display = 'none';
+          break;
+        case 'downloading':
+          updateStatusLabel.textContent = `Downloading update... ${data.percent}%`;
+          updateStatusDesc.textContent = '';
+          btnInstallUpdate.style.display = 'none';
+          break;
+        case 'downloaded':
+          updateStatusLabel.textContent = `Update v${data.version} downloaded`;
+          updateStatusDesc.textContent = 'Restart now to apply the update.';
+          btnInstallUpdate.style.display = '';
+          btnInstallUpdate.disabled = false;
+          btnInstallUpdate.textContent = 'Restart & Update';
+          btnInstallUpdate.onclick = () => {
+            // electron-updater quitAndInstall
+            window.snowify.installUpdate();
+          };
+          showToast('Update downloaded — restart to apply');
+          break;
+        case 'error':
+          updateStatusLabel.textContent = 'Update check failed';
+          updateStatusDesc.textContent = data.message || '';
+          btnInstallUpdate.style.display = 'none';
+          break;
+      }
+    });
+
     // Account buttons
     $('#btn-sign-in').addEventListener('click', async () => {
       const email = $('#auth-email').value.trim();

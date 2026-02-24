@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { execFile } = require('child_process');
+const { autoUpdater } = require('electron-updater');
 
 let mainWindow;
 let ytmusic;
@@ -445,6 +446,8 @@ app.whenReady().then(async () => {
   await checkMacYtDlp();
   // Restore saved session after window is ready
   autoSignIn();
+  // Auto-updater
+  initAutoUpdater();
 });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
@@ -1867,5 +1870,85 @@ ipcMain.handle('playlist:deleteImage', async (_event, imagePath) => {
   } catch (err) {
     console.error('Delete cover image error:', err);
     return false;
+  }
+});
+
+// ─── Auto Updater ───
+
+const _isDev = !app.isPackaged;
+
+function sendUpdateStatus(status, info = {}) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('updater:status', { status, ...info });
+  }
+}
+
+let _updateDownloaded = false;
+
+function initAutoUpdater() {
+  if (_isDev) {
+    console.log('Auto-updater disabled in dev mode');
+    return;
+  }
+
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('checking-for-update', () => {
+    sendUpdateStatus('checking');
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    sendUpdateStatus('available', { version: info.version, releaseNotes: info.releaseNotes });
+  });
+
+  autoUpdater.on('update-not-available', () => {
+    sendUpdateStatus('up-to-date');
+  });
+
+  autoUpdater.on('download-progress', (progress) => {
+    sendUpdateStatus('downloading', { percent: Math.round(progress.percent) });
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    _updateDownloaded = true;
+    sendUpdateStatus('downloaded', { version: info.version });
+  });
+
+  autoUpdater.on('error', (err) => {
+    sendUpdateStatus('error', { message: err?.message || 'Update check failed' });
+  });
+
+  // Check on launch (with delay to avoid slowing startup)
+  setTimeout(() => {
+    autoUpdater.checkForUpdates().catch(() => {});
+  }, 5000);
+}
+
+ipcMain.handle('app:getVersion', () => app.getVersion());
+
+ipcMain.handle('updater:check', async () => {
+  if (_isDev) {
+    sendUpdateStatus('error', { message: 'Auto-update is not available in dev mode' });
+    return null;
+  }
+  try {
+    const result = await autoUpdater.checkForUpdates();
+    return result?.updateInfo?.version || null;
+  } catch (err) {
+    console.error('Update check error:', err);
+    return null;
+  }
+});
+
+ipcMain.on('updater:install', () => {
+  if (_isDev) return;
+  if (_updateDownloaded) {
+    autoUpdater.quitAndInstall(false, true);
+  } else {
+    autoUpdater.downloadUpdate().catch(err => {
+      console.error('Update download error:', err);
+      sendUpdateStatus('error', { message: err?.message || 'Download failed' });
+    });
   }
 });

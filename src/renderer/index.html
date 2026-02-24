@@ -487,6 +487,24 @@
               <button class="btn-setting-action btn-danger" id="setting-reset-all">Reset</button>
             </div>
           </div>
+
+          <div class="settings-group">
+            <h3>About</h3>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-label">Version</span>
+                <span class="setting-desc" id="app-version-label">Loading...</span>
+              </div>
+              <button class="btn-setting-action" id="btn-check-update">Check for updates</button>
+            </div>
+            <div class="setting-row" id="update-status-row" style="display:none;">
+              <div class="setting-info">
+                <span class="setting-label" id="update-status-label">Checking...</span>
+                <span class="setting-desc" id="update-status-desc"></span>
+              </div>
+              <button class="btn-setting-action" id="btn-install-update" style="display:none;">Download &amp; Install</button>
+            </div>
+          </div>
         </div>
       </section>
 

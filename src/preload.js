@@ -73,4 +73,12 @@ contextBridge.exposeInMainWorld('snowify', {
   disconnectDiscord: () => ipcRenderer.invoke('discord:disconnect'),
   updatePresence: (data) => ipcRenderer.invoke('discord:updatePresence', data),
   clearPresence: () => ipcRenderer.invoke('discord:clearPresence'),
+
+  // Auto-updater
+  getVersion: () => ipcRenderer.invoke('app:getVersion'),
+  checkForUpdates: () => ipcRenderer.invoke('updater:check'),
+  installUpdate: () => ipcRenderer.send('updater:install'),
+  onUpdateStatus: (callback) => {
+    ipcRenderer.on('updater:status', (_event, data) => callback(data));
+  },
 });
