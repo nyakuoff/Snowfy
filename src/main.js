@@ -105,6 +105,28 @@ function getYtDlpPath() {
   return binName;
 }
 
+// ─── Windows Thumbbar Icons ───
+function loadThumbIcon(name) {
+  const iconPath = path.join(__dirname, '..', 'assets', 'thumbbar', `${name}.png`);
+  return nativeImage.createFromPath(iconPath);
+}
+
+const thumbIcons = process.platform === 'win32' ? {
+  prev: loadThumbIcon('prev'),
+  play: loadThumbIcon('play'),
+  pause: loadThumbIcon('pause'),
+  next: loadThumbIcon('next')
+} : null;
+
+function updateThumbarButtons(isPlaying) {
+  if (process.platform !== 'win32' || !mainWindow) return;
+  mainWindow.setThumbarButtons([
+    { tooltip: 'Previous', icon: thumbIcons.prev, click: () => mainWindow.webContents.send('thumbar:prev') },
+    { tooltip: isPlaying ? 'Pause' : 'Play', icon: isPlaying ? thumbIcons.pause : thumbIcons.play, click: () => mainWindow.webContents.send('thumbar:playPause') },
+    { tooltip: 'Next', icon: thumbIcons.next, click: () => mainWindow.webContents.send('thumbar:next') }
+  ]);
+}
+
 async function initYTMusic() {
   const YTMusic = (await import('ytmusic-api')).default;
   ytmusic = new YTMusic();
@@ -218,6 +240,8 @@ function createWindow() {
       );
     });
   }
+
+  updateThumbarButtons(false);
 
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     callback({
@@ -638,6 +662,10 @@ ipcMain.handle('cloud:load', async () => {
     console.error('Cloud load error:', err);
     return null;
   }
+});
+
+ipcMain.on('thumbar:updateState', (_event, isPlaying) => {
+  updateThumbarButtons(isPlaying);
 });
 
 ipcMain.on('window:minimize', () => mainWindow?.minimize());

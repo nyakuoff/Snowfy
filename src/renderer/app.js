@@ -1471,6 +1471,7 @@
       pauseIcon.classList.add('hidden');
     }
     document.body.classList.toggle('audio-playing', state.isPlaying);
+    if (window.snowify.updateThumbar) window.snowify.updateThumbar(state.isPlaying);
   }
 
   function updateTrackHighlight() {
@@ -1511,6 +1512,13 @@
     }
   }
 
+  // Windows taskbar thumbbar buttons
+  if (window.snowify.onThumbarPrev) {
+    window.snowify.onThumbarPrev(() => playPrev());
+    window.snowify.onThumbarPlayPause(() => togglePlay());
+    window.snowify.onThumbarNext(() => playNext());
+  }
+
   const npLike = $('#np-like');
   npLike.addEventListener('click', () => {
     const track = state.queue[state.queueIndex];
@@ -1534,7 +1542,8 @@
     updateLikedCount();
     const current = state.queue[state.queueIndex];
     if (current?.id === track.id) {
-      npLike.classList.toggle('liked', state.likedSongs.some(t => t.id === track.id));
+      const liked = state.likedSongs.some(t => t.id === track.id);
+      npLike.classList.toggle('liked', liked);
     }
     // Return true if the track was liked (not unliked)
     return idx < 0;

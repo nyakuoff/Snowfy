@@ -62,6 +62,12 @@ contextBridge.exposeInMainWorld('snowify', {
   spotifyPickCsv: () => ipcRenderer.invoke('spotify:pickCsv'),
   spotifyMatchTrack: (title, artist) => ipcRenderer.invoke('spotify:matchTrack', title, artist),
 
+  // Windows thumbbar
+  updateThumbar: (isPlaying) => ipcRenderer.send('thumbar:updateState', isPlaying),
+  onThumbarPrev: (cb) => ipcRenderer.on('thumbar:prev', cb),
+  onThumbarPlayPause: (cb) => ipcRenderer.on('thumbar:playPause', cb),
+  onThumbarNext: (cb) => ipcRenderer.on('thumbar:next', cb),
+
   // Discord RPC
   connectDiscord: () => ipcRenderer.invoke('discord:connect'),
   disconnectDiscord: () => ipcRenderer.invoke('discord:disconnect'),
