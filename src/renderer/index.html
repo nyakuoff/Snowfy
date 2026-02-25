@@ -748,12 +748,34 @@
         <span class="video-overlay-title" id="video-overlay-title"></span>
         <span class="video-overlay-artist" id="video-overlay-artist"></span>
       </div>
-      <button class="icon-btn video-overlay-close" id="btn-close-video" title="Close">
-        <svg width="20" height="20" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-      </button>
+      <div class="video-overlay-actions">
+        <button class="icon-btn video-overlay-btn" id="btn-video-listen" title="Listen only">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
+        </button>
+        <button class="icon-btn video-overlay-btn" id="btn-video-minimize" title="Minimize">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg>
+        </button>
+        <button class="icon-btn video-overlay-close" id="btn-close-video" title="Close">
+          <svg width="20" height="20" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
     </div>
     <div class="video-container">
       <video id="video-player" controls></video>
+      <div class="video-mini-controls" id="video-mini-controls">
+        <button class="video-mini-btn" id="btn-video-mini-listen" title="Listen only">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
+        </button>
+        <button class="video-mini-btn" id="btn-video-expand" title="Expand">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+        </button>
+        <button class="video-mini-btn" id="btn-video-mini-close" title="Close">
+          <svg width="16" height="16" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="video-mini-progress" id="video-mini-progress">
+        <div class="video-mini-progress-fill" id="video-mini-progress-fill"></div>
+      </div>
       <div class="video-loading hidden" id="video-loading">
         <div class="spinner"></div>
         <p>Loading video...</p>

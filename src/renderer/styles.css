@@ -3435,6 +3435,109 @@ html, body {
   display: none;
 }
 
+/* Video overlay actions group */
+.video-overlay-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.video-overlay-btn {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+.video-overlay-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Mini player state */
+.video-overlay.mini {
+  inset: auto;
+  bottom: calc(var(--now-playing-height) + 16px);
+  right: 16px;
+  width: 320px;
+  height: auto;
+  background: transparent;
+  pointer-events: none;
+  animation: none;
+  transition: bottom 0.25s ease, right 0.25s ease, left 0.25s ease, top 0.25s ease;
+}
+.video-overlay.mini.dragging {
+  transition: none;
+}
+.video-overlay.mini .video-container {
+  width: 100%;
+  max-width: none;
+  pointer-events: auto;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+}
+.video-overlay.mini .video-overlay-header {
+  display: none;
+}
+
+/* Mini player controls (expand + close, visible only in mini mode via CSS) */
+.video-mini-controls {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: none;
+  gap: 4px;
+  z-index: 10;
+}
+.video-overlay.mini .video-mini-controls {
+  display: flex;
+}
+.video-mini-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.video-mini-btn:hover {
+  background: rgba(0, 0, 0, 0.9);
+}
+
+/* Mini player progress bar */
+.video-mini-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.2);
+  z-index: 10;
+  display: none;
+}
+.video-overlay.mini .video-mini-progress {
+  display: block;
+}
+.video-mini-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  width: 0%;
+  transition: width 0.1s linear;
+}
+
+/* Hide native controls in mini mode */
+.video-overlay.mini video {
+  pointer-events: none;
+}
+
 /* ═══════ Video Cards (Artist Page) ═══════ */
 .video-card {
   flex: 0 0 240px;
