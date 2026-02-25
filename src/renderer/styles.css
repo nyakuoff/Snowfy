@@ -3467,7 +3467,7 @@ html, body {
   background: transparent;
   pointer-events: none;
   animation: none;
-  transition: bottom 0.25s ease, right 0.25s ease, left 0.25s ease, top 0.25s ease;
+  transition: transform 0.35s cubic-bezier(0.2, 0.9, 0.3, 1);
 }
 .video-overlay.mini.dragging {
   transition: none;

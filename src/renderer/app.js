@@ -3891,17 +3891,40 @@
   document.addEventListener('mouseup', (e) => {
     if (!_miniDragState) return;
     _miniWasDragged = _miniDragState.moved;
-    videoOverlay.style.transform = '';
-    videoOverlay.classList.remove('dragging');
     if (_miniWasDragged) {
+      // 1. Snapshot where the player is visually right now (with drag transform)
+      const draggedRect = videoOverlay.getBoundingClientRect();
+
+      // 2. Decide target corner
       const midX = window.innerWidth / 2;
       const midY = window.innerHeight / 2;
       const isRight = e.clientX > midX;
       const isBottom = e.clientY > midY;
+
+      // 3. Set final CSS anchor position (with transitions disabled)
+      videoOverlay.classList.add('dragging');
+      videoOverlay.style.transform = '';
       videoOverlay.style.right = isRight ? '16px' : 'auto';
       videoOverlay.style.left = isRight ? 'auto' : '16px';
       videoOverlay.style.bottom = isBottom ? `calc(var(--now-playing-height) + 16px)` : 'auto';
       videoOverlay.style.top = isBottom ? 'auto' : '16px';
+
+      // 4. Measure where the target corner actually is
+      void videoOverlay.offsetHeight;
+      const targetRect = videoOverlay.getBoundingClientRect();
+
+      // 5. Offset back to dragged position via transform (visually nothing changes)
+      const offsetX = draggedRect.left - targetRect.left;
+      const offsetY = draggedRect.top - targetRect.top;
+      videoOverlay.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+      void videoOverlay.offsetHeight;
+
+      // 6. Enable transition and animate transform to 0 (GPU-accelerated glide to corner)
+      videoOverlay.classList.remove('dragging');
+      videoOverlay.style.transform = '';
+    } else {
+      videoOverlay.style.transform = '';
+      videoOverlay.classList.remove('dragging');
     }
     _miniDragState = null;
   });
