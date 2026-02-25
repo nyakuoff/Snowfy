@@ -423,6 +423,7 @@ window.DualAudioEngine = function DualAudioEngine(audioA, audioB, opts) {
     instantComplete()    { instantCompleteCrossfade(); },
     clearPreload()       { clearPreload(); },
     resetTrigger()       { crossfadeTriggered = false; },
+    markTriggered()      { crossfadeTriggered = true; },
     resetPreloadFlag()   { preloadTriggered = false; },
     applyVolume(vol)     { if (!crossfadeInProgress) audio.volume = vol * VOLUME_SCALE; },
     pauseFade()          { pauseFade(); },

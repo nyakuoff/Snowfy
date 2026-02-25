@@ -1499,6 +1499,7 @@
       const newTime = pct * audio.duration;
       const remaining = audio.duration - newTime;
       if (remaining > state.crossfade) engine.resetTrigger();
+      else engine.markTriggered();
       audio.currentTime = newTime;
       progressFill.style.width = (pct * 100) + '%';
     }
@@ -1655,6 +1656,7 @@
           audio.currentTime = details.seekTime;
           const remaining = audio.duration - details.seekTime;
           if (remaining > state.crossfade) engine.resetTrigger();
+          else engine.markTriggered();
           updatePositionState();
         }
       });
@@ -3130,6 +3132,7 @@
           const newTime = Math.min(audio.duration, audio.currentTime + 5);
           const remaining = audio.duration - newTime;
           if (remaining > state.crossfade) engine.resetTrigger();
+          else engine.markTriggered();
           audio.currentTime = newTime;
         }
         break;
@@ -3140,6 +3143,7 @@
           const newTime = Math.max(0, audio.currentTime - 5);
           const remaining = audio.duration - newTime;
           if (remaining > state.crossfade) engine.resetTrigger();
+          else engine.markTriggered();
           audio.currentTime = newTime;
         }
         break;
