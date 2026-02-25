@@ -691,6 +691,10 @@
       card.addEventListener('click', () => {
         if (video) openVideoPlayer(video.id, video.title, video.artist);
       });
+      card.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        if (video) showVideoContextMenu(e, video);
+      });
     });
   }
 
@@ -778,21 +782,12 @@
     bindArtistLinks(container);
   }
 
-  function showContextMenu(e, track, { hideAddQueue = false, hidePlayNext = false } = {}) {
-    removeContextMenu();
-    const isLiked = state.likedSongs.some(t => t.id === track.id);
-    const menu = document.createElement('div');
-    menu.className = 'context-menu';
-    menu.style.left = e.clientX + 'px';
-    menu.style.top = e.clientY + 'px';
-
-    let playlistSection = '';
+  function buildPlaylistSectionHtml() {
     if (state.playlists.length >= 5) {
-      // Use a submenu that flies out on hover
       const subItems = state.playlists.map(p =>
         `<div class="context-menu-item context-sub-item" data-action="add-to-playlist" data-pid="${p.id}">${escapeHtml(p.name)}</div>`
       ).join('');
-      playlistSection = `
+      return `
         <div class="context-menu-divider"></div>
         <div class="context-menu-item context-menu-has-sub" data-action="none">
           <span>Add to playlist</span>
@@ -803,31 +798,17 @@
       const inlineItems = state.playlists.map(p =>
         `<div class="context-menu-item" data-action="add-to-playlist" data-pid="${p.id}">${escapeHtml(p.name)}</div>`
       ).join('');
-      playlistSection = '<div class="context-menu-divider"></div>' + inlineItems;
+      return '<div class="context-menu-divider"></div>' + inlineItems;
     }
+    return '';
+  }
 
-    const addQueueHtml = hideAddQueue ? '' : '<div class="context-menu-item" data-action="add-queue">Add to Queue</div>';
-    const playNextHtml = hidePlayNext ? '' : '<div class="context-menu-item" data-action="play-next">Play Next</div>';
-
-    menu.innerHTML = `
-      <div class="context-menu-item" data-action="play">Play</div>
-      ${playNextHtml}
-      ${addQueueHtml}
-      <div class="context-menu-divider"></div>
-      <div class="context-menu-item" data-action="start-radio">Start Radio</div>
-      <div class="context-menu-item" data-action="watch-video">Watch Video</div>
-      <div class="context-menu-item" data-action="like">${isLiked ? 'Unlike' : 'Like'}</div>
-      ${playlistSection}
-      <div class="context-menu-divider"></div>
-      <div class="context-menu-item" data-action="share">Copy Link</div>
-    `;
-
+  function positionContextMenu(menu) {
     document.body.appendChild(menu);
     const rect = menu.getBoundingClientRect();
     if (rect.right > window.innerWidth) menu.style.left = (window.innerWidth - rect.width - 8) + 'px';
     if (rect.bottom > window.innerHeight) menu.style.top = (window.innerHeight - rect.height - 8) + 'px';
 
-    // Position submenu to left if it would overflow right edge
     const subMenuEl = menu.querySelector('.context-submenu');
     if (subMenuEl) {
       const parentItem = subMenuEl.parentElement;
@@ -844,6 +825,34 @@
         }
       });
     }
+  }
+
+  function showContextMenu(e, track, { hideAddQueue = false, hidePlayNext = false } = {}) {
+    removeContextMenu();
+    const isLiked = state.likedSongs.some(t => t.id === track.id);
+    const menu = document.createElement('div');
+    menu.className = 'context-menu';
+    menu.style.left = e.clientX + 'px';
+    menu.style.top = e.clientY + 'px';
+
+    const playlistSection = buildPlaylistSectionHtml();
+    const addQueueHtml = hideAddQueue ? '' : '<div class="context-menu-item" data-action="add-queue">Add to Queue</div>';
+    const playNextHtml = hidePlayNext ? '' : '<div class="context-menu-item" data-action="play-next">Play Next</div>';
+
+    menu.innerHTML = `
+      <div class="context-menu-item" data-action="play">Play</div>
+      ${playNextHtml}
+      ${addQueueHtml}
+      <div class="context-menu-divider"></div>
+      <div class="context-menu-item" data-action="start-radio">Start Radio</div>
+      <div class="context-menu-item" data-action="watch-video">Watch Video</div>
+      <div class="context-menu-item" data-action="like">${isLiked ? 'Unlike' : 'Like'}</div>
+      ${playlistSection}
+      <div class="context-menu-divider"></div>
+      <div class="context-menu-item" data-action="share">Copy Link</div>
+    `;
+
+    positionContextMenu(menu);
 
     menu.addEventListener('click', async (ev) => {
       const item = ev.target.closest('[data-action]');
@@ -1039,6 +1048,10 @@
       }
 
       audio.volume = state.volume * engine.VOLUME_SCALE;
+      const directUrl = await window.snowify.getStreamUrl(track.url, state.audioQuality);
+      audio.src = directUrl;
+      audio.volume = state.volume * VOLUME_SCALE;
+      audio.load();
       await audio.play();
       state.isPlaying = true;
       state.isLoading = false;
@@ -1512,6 +1525,9 @@
   function setVolume(vol) {
     state.volume = Math.max(0, Math.min(1, vol));
     engine.applyVolume(state.volume);
+    audio.volume = state.volume * VOLUME_SCALE;
+    if (_videoAudio) _videoAudio.volume = state.volume * VOLUME_SCALE;
+    if (videoPlayer && !videoPlayer.muted) videoPlayer.volume = state.volume * VOLUME_SCALE;
     volumeFill.style.width = (state.volume * 100) + '%';
     const isMuted = state.volume === 0;
     $('.vol-icon', btnVolume).classList.toggle('hidden', isMuted);
@@ -3020,10 +3036,10 @@
       const v = (exploreData?.newMusicVideos || []).find(t => t.id === card.dataset.videoId);
       if (v) {
         bindArtistLinks(card);
-        card.addEventListener('click', () => playFromList([v], 0));
+        card.addEventListener('click', () => openVideoPlayer(v.id, v.title, v.artist));
         card.addEventListener('contextmenu', (e) => {
           e.preventDefault();
-          showContextMenu(e, v);
+          showVideoContextMenu(e, v);
         });
       }
     });
@@ -3575,6 +3591,10 @@
         card.addEventListener('click', () => {
           if (video) openVideoPlayer(video.videoId, video.name, video.artist);
         });
+        card.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          if (video) showVideoContextMenu(e, video);
+        });
       });
     }
 
@@ -3598,6 +3618,10 @@
         const video = livePerfs.find(v => v.videoId === vid);
         card.addEventListener('click', () => {
           if (video) openVideoPlayer(video.videoId, video.name, video.artist);
+        });
+        card.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          if (video) showVideoContextMenu(e, video);
         });
       });
     }
@@ -3968,21 +3992,118 @@
   const videoTitle = $('#video-overlay-title');
   const videoArtist = $('#video-overlay-artist');
   let _wasPlayingBeforeVideo = false;
+  const miniProgressFill = $('#video-mini-progress-fill');
   let _videoAudio = null; // separate audio track for split streams
+  let _currentVideoId = null;
+  let _isVideoMini = false;
+  const VOLUME_SCALE = 0.3;
 
   $('#btn-close-video').addEventListener('click', closeVideoPlayer);
+  $('#btn-video-minimize').addEventListener('click', minimizeVideoPlayer);
+  $('#btn-video-expand').addEventListener('click', expandVideoPlayer);
+  $('#btn-video-mini-close').addEventListener('click', closeVideoPlayer);
+  $('#btn-video-listen').addEventListener('click', listenOnlyFromVideo);
+  $('#btn-video-mini-listen').addEventListener('click', listenOnlyFromVideo);
+
+  // ── Mini player drag to reposition ──
+  let _miniDragState = null;
+  let _miniWasDragged = false;
+
+  videoOverlay.addEventListener('mousedown', (e) => {
+    if (!_isVideoMini) return;
+    if (!e.target.closest('.video-container')) return;
+    if (e.target.closest('.video-mini-btn')) return;
+    _miniWasDragged = false;
+    _miniDragState = { startX: e.clientX, startY: e.clientY, moved: false };
+    videoOverlay.classList.add('dragging');
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!_miniDragState) return;
+    const dx = e.clientX - _miniDragState.startX;
+    const dy = e.clientY - _miniDragState.startY;
+    if (!_miniDragState.moved && Math.abs(dx) + Math.abs(dy) > 5) {
+      _miniDragState.moved = true;
+    }
+    if (_miniDragState.moved) {
+      videoOverlay.style.transform = `translate(${dx}px, ${dy}px)`;
+    }
+  });
+
+  document.addEventListener('mouseup', (e) => {
+    if (!_miniDragState) return;
+    _miniWasDragged = _miniDragState.moved;
+    if (_miniWasDragged) {
+      // 1. Snapshot where the player is visually right now (with drag transform)
+      const draggedRect = videoOverlay.getBoundingClientRect();
+
+      // 2. Decide target corner
+      const midX = window.innerWidth / 2;
+      const midY = window.innerHeight / 2;
+      const isRight = e.clientX > midX;
+      const isBottom = e.clientY > midY;
+
+      // 3. Set final CSS anchor position (with transitions disabled)
+      videoOverlay.classList.add('dragging');
+      videoOverlay.style.transform = '';
+      videoOverlay.style.right = isRight ? '16px' : 'auto';
+      videoOverlay.style.left = isRight ? 'auto' : '16px';
+      videoOverlay.style.bottom = isBottom ? `calc(var(--now-playing-height) + 16px)` : 'auto';
+      videoOverlay.style.top = isBottom ? 'auto' : '16px';
+
+      // 4. Measure where the target corner actually is
+      void videoOverlay.offsetHeight;
+      const targetRect = videoOverlay.getBoundingClientRect();
+
+      // 5. Offset back to dragged position via transform (visually nothing changes)
+      const offsetX = draggedRect.left - targetRect.left;
+      const offsetY = draggedRect.top - targetRect.top;
+      videoOverlay.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+      void videoOverlay.offsetHeight;
+
+      // 6. Enable transition and animate transform to 0 (GPU-accelerated glide to corner)
+      videoOverlay.classList.remove('dragging');
+      videoOverlay.style.transform = '';
+    } else {
+      videoOverlay.style.transform = '';
+      videoOverlay.classList.remove('dragging');
+    }
+    _miniDragState = null;
+  });
 
   videoOverlay.addEventListener('click', (e) => {
-    if (e.target === videoOverlay) closeVideoPlayer();
+    if (_isVideoMini) {
+      if (_miniWasDragged) { _miniWasDragged = false; return; }
+      if (e.target.closest('.video-mini-btn')) return;
+      if (e.target === videoPlayer || e.target.closest('.video-container')) {
+        expandVideoPlayer();
+      }
+      return;
+    }
+    if (e.target === videoOverlay) minimizeVideoPlayer();
   });
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !videoOverlay.classList.contains('hidden')) {
-      closeVideoPlayer();
+      if (_isVideoMini) closeVideoPlayer();
+      else minimizeVideoPlayer();
     }
   });
 
   async function openVideoPlayer(videoId, name, artist) {
+    // Only save playback state if no video is currently active
+    if (videoOverlay.classList.contains('hidden')) {
+      _wasPlayingBeforeVideo = state.isPlaying;
+    }
+
+    // Reset mini state
+    _isVideoMini = false;
+    videoOverlay.classList.remove('mini');
+    videoPlayer.setAttribute('controls', '');
+    resetVideoOverlayPosition();
+
+    _currentVideoId = videoId;
     videoTitle.textContent = name || 'Music Video';
     videoArtist.textContent = artist || '';
     videoPlayer.src = '';
@@ -3992,22 +4113,30 @@
     videoOverlay.classList.remove('hidden');
 
     // Pause audio playback while watching video
-    _wasPlayingBeforeVideo = state.isPlaying;
     if (state.isPlaying) {
       audio.pause();
       state.isPlaying = false;
       updatePlayButton();
     }
 
+    // Clean up previous listeners
+    videoPlayer.removeEventListener('timeupdate', updateMiniProgress);
+    videoPlayer.removeEventListener('seeked', syncVideoAudio);
+    videoPlayer.removeEventListener('timeupdate', syncVideoAudio);
+    videoPlayer.removeEventListener('pause', onVideoPause);
+    videoPlayer.removeEventListener('play', onVideoPlay);
+
     try {
       const result = await window.snowify.getVideoStreamUrl(videoId, state.videoQuality, state.videoPremuxed);
       videoPlayer.src = result.videoUrl;
       videoLoading.classList.add('hidden');
+      videoPlayer.addEventListener('timeupdate', updateMiniProgress);
 
       if (result.audioUrl) {
         // Split streams: sync a separate audio element
         _videoAudio = new Audio(result.audioUrl);
         _videoAudio.volume = state.volume * engine.VOLUME_SCALE;
+        _videoAudio.volume = state.volume * VOLUME_SCALE;
 
         videoPlayer.muted = true;
 
@@ -4056,14 +4185,37 @@
     }
   }
 
+  function updateMiniProgress() {
+    if (videoPlayer.duration) {
+      miniProgressFill.style.width = (videoPlayer.currentTime / videoPlayer.duration * 100) + '%';
+    }
+  }
+
+  function resetVideoOverlayPosition() {
+    videoOverlay.style.right = '';
+    videoOverlay.style.left = '';
+    videoOverlay.style.top = '';
+    videoOverlay.style.bottom = '';
+    videoOverlay.style.transform = '';
+  }
+
   function closeVideoPlayer() {
     videoOverlay.classList.add('hidden');
+    videoOverlay.classList.remove('mini');
+    videoPlayer.setAttribute('controls', '');
+    _currentVideoId = null;
+    _isVideoMini = false;
+    _miniDragState = null;
+    _miniWasDragged = false;
     videoPlayer.pause();
     videoPlayer.removeEventListener('seeked', syncVideoAudio);
     videoPlayer.removeEventListener('timeupdate', syncVideoAudio);
+    videoPlayer.removeEventListener('timeupdate', updateMiniProgress);
     videoPlayer.removeEventListener('pause', onVideoPause);
     videoPlayer.removeEventListener('play', onVideoPlay);
     videoPlayer.src = '';
+    miniProgressFill.style.width = '0%';
+    resetVideoOverlayPosition();
     if (_videoAudio) { _videoAudio.pause(); _videoAudio.src = ''; _videoAudio = null; }
 
     // Resume audio if it was playing before
@@ -4073,6 +4225,127 @@
         updatePlayButton();
       }).catch(() => {});
     }
+  }
+
+  function minimizeVideoPlayer() {
+    _isVideoMini = true;
+    videoOverlay.classList.add('mini');
+    videoPlayer.removeAttribute('controls');
+  }
+
+  function expandVideoPlayer() {
+    _isVideoMini = false;
+    _miniDragState = null;
+    _miniWasDragged = false;
+    videoOverlay.classList.remove('mini');
+    videoPlayer.setAttribute('controls', '');
+    resetVideoOverlayPosition();
+  }
+
+  function listenOnlyFromVideo() {
+    if (!_currentVideoId) return;
+    const seekTime = videoPlayer.currentTime;
+    const track = makeTrackFromVideo({
+      id: _currentVideoId,
+      title: videoTitle.textContent,
+      artist: videoArtist.textContent,
+    });
+
+    // Don't resume previous audio
+    _wasPlayingBeforeVideo = false;
+    closeVideoPlayer();
+
+    // Play as audio track
+    playFromList([track], 0);
+
+    // Seek to video position after audio starts
+    if (seekTime > 1) {
+      const onPlaying = () => {
+        audio.removeEventListener('playing', onPlaying);
+        audio.currentTime = seekTime;
+      };
+      audio.addEventListener('playing', onPlaying);
+    }
+  }
+
+  function normalizeVideo(video) {
+    return {
+      id: video.videoId || video.id,
+      title: video.name || video.title,
+      artist: video.artist || '',
+      thumbnail: video.thumbnail || `https://i.ytimg.com/vi/${video.videoId || video.id}/hqdefault.jpg`,
+    };
+  }
+
+  function makeTrackFromVideo(video) {
+    const v = normalizeVideo(video);
+    return {
+      id: v.id,
+      title: v.title,
+      artist: v.artist,
+      url: `https://music.youtube.com/watch?v=${v.id}`,
+      thumbnail: v.thumbnail,
+    };
+  }
+
+  // ── Video context menu ──
+  function showVideoContextMenu(e, video) {
+    removeContextMenu();
+    const v = normalizeVideo(video);
+    const menu = document.createElement('div');
+    menu.className = 'context-menu';
+    menu.style.left = e.clientX + 'px';
+    menu.style.top = e.clientY + 'px';
+
+    const playlistSection = buildPlaylistSectionHtml();
+
+    menu.innerHTML = `
+      <div class="context-menu-item" data-action="watch-video">Play Video</div>
+      <div class="context-menu-item" data-action="play-audio">Play as Audio</div>
+      <div class="context-menu-divider"></div>
+      <div class="context-menu-item" data-action="play-next">Play Next</div>
+      <div class="context-menu-item" data-action="add-queue">Add to Queue</div>
+      ${playlistSection}
+      <div class="context-menu-divider"></div>
+      <div class="context-menu-item" data-action="share">Copy Link</div>
+    `;
+
+    positionContextMenu(menu);
+
+    const track = makeTrackFromVideo(video);
+
+    menu.addEventListener('click', (ev) => {
+      const item = ev.target.closest('[data-action]');
+      if (!item) return;
+      const action = item.dataset.action;
+      if (action === 'none') return;
+      switch (action) {
+        case 'watch-video':
+          openVideoPlayer(v.id, v.title, v.artist);
+          break;
+        case 'play-audio':
+          playFromList([track], 0);
+          break;
+        case 'play-next':
+          handlePlayNext(track);
+          break;
+        case 'add-queue':
+          handleAddToQueue(track);
+          break;
+        case 'add-to-playlist':
+          addToPlaylist(item.dataset.pid, track);
+          break;
+        case 'share':
+          navigator.clipboard.writeText(`https://music.youtube.com/watch?v=${v.id}`);
+          showToast('Link copied to clipboard');
+          break;
+      }
+      removeContextMenu();
+    });
+
+    setTimeout(() => {
+      document.addEventListener('click', removeContextMenu, { once: true });
+    }, 10);
   }
 
   function init() {
@@ -4278,6 +4551,7 @@
       document.documentElement.classList.toggle('no-animations', !state.animations);
       document.documentElement.classList.toggle('no-effects', !state.effects);
       engine.applyVolume(state.volume);
+      audio.volume = state.volume * VOLUME_SCALE;
       showToast('Synced from cloud');
       return true;
     }

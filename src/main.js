@@ -1486,7 +1486,7 @@ ipcMain.handle('yt:getStreamUrl', async (_event, videoUrl, quality) => {
 ipcMain.handle('yt:getVideoStreamUrl', async (_event, videoId, quality, premuxed) => {
   const height = parseInt(quality) || 720;
   const fmt = premuxed
-    ? `best[height<=${height}]/best`
+    ? `best[height<=${height}][protocol!=m3u8_native][protocol!=m3u8]/best[protocol!=m3u8_native][protocol!=m3u8]/best`
     : `bestvideo[height<=${height}][ext=mp4]+bestaudio[ext=m4a]/best[height<=${height}]/best`;
   const cacheKey = `video:${videoId}:${fmt}`;
   const cached = getCachedUrl(cacheKey);
