@@ -2527,6 +2527,25 @@ html, body {
 [data-theme="light"] .crossfade-slider {
   background: rgba(0, 0, 0, 0.1);
 }
+/* Beta chip badge */
+.chip-beta {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 500px;
+  background: var(--accent);
+  color: #fff;
+  vertical-align: middle;
+  margin-left: 6px;
+  line-height: 1.2;
+}
+/* Normalization target row */
+.normalization-target-row {
+  padding-top: 0 !important;
+}
 /* Action buttons in settings */
 .btn-setting-action {
   padding: 8px 20px;

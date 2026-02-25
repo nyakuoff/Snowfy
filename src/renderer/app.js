@@ -59,7 +59,9 @@
     discordRpc: false,
     country: '',
     searchHistory: [],
-    crossfade: 0
+    crossfade: 0,
+    normalization: false,
+    normalizationTarget: -14
   };
 
   // ─── Save button SVGs ───
@@ -144,7 +146,9 @@
       discordRpc: state.discordRpc,
       country: state.country,
       searchHistory: state.searchHistory,
-      crossfade: state.crossfade
+      crossfade: state.crossfade,
+      normalization: state.normalization,
+      normalizationTarget: state.normalizationTarget
     }));
     localStorage.setItem('snowify_lastSave', String(Date.now()));
     cloudSaveDebounced();
@@ -195,6 +199,8 @@
         state.country = saved.country || '';
         state.searchHistory = saved.searchHistory || [];
         state.crossfade = saved.crossfade ?? 0;
+        state.normalization = saved.normalization ?? false;
+        state.normalizationTarget = saved.normalizationTarget ?? -14;
       }
       // Restore queue (local-only, separate from cloud sync)
       const savedQueue = JSON.parse(localStorage.getItem('snowify_queue'));
@@ -1062,6 +1068,8 @@
       saveState();
       // Reset preload flags so next track gets preloaded
       engine.resetPreloadFlag();
+      // Loudness normalization: analyze + apply
+      normalizer.analyzeAndApply(audio, audio.src, track.id);
     } catch (err) {
       console.error('Playback error:', err);
       const msg = typeof err === 'string' ? err : (err.message || 'unknown error');
@@ -1338,6 +1346,7 @@
         updateTrackHighlight();
         renderQueue();
         saveState();
+        normalizer.analyzeAndApply(audio, audio.src, evt.track.id);
         break;
       case 'gapless-play-failed':
         playNext();
@@ -1349,6 +1358,10 @@
         updateTrackHighlight();
         renderQueue();
         saveState();
+        normalizer.applyGain(engine.getActiveSource(), evt.track.id);
+        break;
+      case 'preload-ready':
+        normalizer.preAnalyze(evt.url, evt.track.id);
         break;
       case 'crossfade-complete':
         audio = engine.getActiveAudio();
@@ -1406,6 +1419,14 @@
     onStall: () => { showToast('Stream stalled — skipping to next'); playNext(); },
   });
   audio = engine.getActiveAudio();
+
+  // ─── Initialize loudness normalizer ───
+  const normalizer = window.LoudnessNormalizer(audioA, audioB);
+  if (state.normalization) {
+    normalizer.setEnabled(true);
+    normalizer.setTarget(state.normalizationTarget);
+    normalizer.initAudioContext();
+  }
 
   $('#btn-play-pause').addEventListener('click', togglePlay);
   $('#btn-next').addEventListener('click', playNext);
@@ -4927,7 +4948,9 @@
         theme: isCustomTheme(state.theme) ? 'dark' : state.theme,
         discordRpc: state.discordRpc,
         country: state.country,
-        crossfade: state.crossfade
+        crossfade: state.crossfade,
+        normalization: state.normalization,
+        normalizationTarget: state.normalizationTarget
       };
       const result = await window.snowify.cloudSave(data);
       if (result?.error) console.error('Cloud save failed:', result.error);
@@ -4963,6 +4986,8 @@
       state.discordRpc = cloud.discordRpc ?? state.discordRpc;
       state.country = cloud.country || state.country;
       state.crossfade = cloud.crossfade ?? state.crossfade;
+      state.normalization = cloud.normalization ?? state.normalization;
+      state.normalizationTarget = cloud.normalizationTarget ?? state.normalizationTarget;
       // Pause cloud save so saveState() doesn't push old data back up
       _cloudSyncPaused = true;
       saveState();
@@ -4996,6 +5021,10 @@
         cff.style.width = ((v - 1) / (engine.CROSSFADE_MAX - 1) * 100) + '%';
         cfvl.textContent = v + 's';
       }
+      const nt = $('#setting-normalization'); if (nt) nt.checked = state.normalization;
+      const ntr = $('#normalization-target-row'); if (ntr) ntr.classList.toggle('hidden', !state.normalization);
+      const nts = $('#setting-normalization-target'); if (nts) nts.value = String(state.normalizationTarget);
+      if (typeof normalizer !== 'undefined') { normalizer.setEnabled(state.normalization); normalizer.setTarget(state.normalizationTarget); }
       document.documentElement.classList.toggle('no-animations', !state.animations);
       document.documentElement.classList.toggle('no-effects', !state.effects);
       engine.applyVolume(state.volume);
@@ -5090,6 +5119,11 @@
       animations: state.animations,
       effects: state.effects,
         theme: isCustomTheme(state.theme) ? 'dark' : state.theme,
+      discordRpc: state.discordRpc,
+      country: state.country,
+      crossfade: state.crossfade,
+      normalization: state.normalization,
+      normalizationTarget: state.normalizationTarget
     };
     const result = await window.snowify.cloudSave(data);
     if (result?.error) console.error('Cloud save failed:', result.error);
@@ -5488,6 +5522,7 @@
 
     qualitySelect.addEventListener('change', () => {
       state.audioQuality = qualitySelect.value;
+      normalizer.clearCache();
       saveState();
     });
 
@@ -5524,6 +5559,42 @@
       } else {
         state.crossfade = 0;
         crossfadeSliderRow.classList.add('hidden');
+      }
+      saveState();
+    });
+
+    // ─── Normalization settings ───
+    const normToggle = $('#setting-normalization');
+    const normTargetRow = $('#normalization-target-row');
+    const normTargetSelect = $('#setting-normalization-target');
+
+    normToggle.checked = state.normalization;
+    normTargetRow.classList.toggle('hidden', !state.normalization);
+    normTargetSelect.value = String(state.normalizationTarget);
+
+    normToggle.addEventListener('change', () => {
+      state.normalization = normToggle.checked;
+      normalizer.setEnabled(state.normalization);
+      normTargetRow.classList.toggle('hidden', !state.normalization);
+      if (state.normalization) {
+        normalizer.initAudioContext();
+        normalizer.setTarget(state.normalizationTarget);
+        // Analyze current track if playing
+        const track = state.queue[state.queueIndex];
+        if (track && state.isPlaying && audio.src) {
+          normalizer.analyzeAndApply(audio, audio.src, track.id);
+        }
+      }
+      saveState();
+    });
+
+    normTargetSelect.addEventListener('change', () => {
+      state.normalizationTarget = parseInt(normTargetSelect.value, 10);
+      normalizer.setTarget(state.normalizationTarget);
+      // Re-apply gain to current track
+      const track = state.queue[state.queueIndex];
+      if (track && state.normalization) {
+        normalizer.applyGain(audio, track.id);
       }
       saveState();
     });

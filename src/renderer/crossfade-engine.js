@@ -70,6 +70,7 @@ window.DualAudioEngine = function DualAudioEngine(audioA, audioB, opts) {
       preloadedUrl = url;
       standbyAudio.src = url;
       standbyAudio.load();
+      onTransition({ type: 'preload-ready', track: preloadedTrack, url: preloadedUrl });
     } catch (err) {
       console.warn('Preload failed (will fallback):', err);
       preloadedTrack = null;

@@ -410,6 +410,27 @@
                 <span class="crossfade-label-value" id="crossfade-value">5s</span>
               </div>
             </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-label">Loudness normalization <span class="chip-beta">BETA</span></span>
+                <span class="setting-desc">Automatically balance volume between tracks (LUFS)</span>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="setting-normalization" />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <div class="setting-row normalization-target-row hidden" id="normalization-target-row">
+              <div class="setting-info">
+                <span class="setting-label">Target loudness</span>
+                <span class="setting-desc">Lower values = quieter but more dynamic</span>
+              </div>
+              <select class="setting-select" id="setting-normalization-target">
+                <option value="-14">-14 LUFS (Spotify)</option>
+                <option value="-16">-16 LUFS (Apple Music)</option>
+                <option value="-23">-23 LUFS (EBU R128)</option>
+              </select>
+            </div>
           </div>
           <div class="settings-group">
             <h3>Video</h3>
@@ -908,9 +929,10 @@
   <!-- ═══════ Notification Toast ═══════ -->
   <div id="toast" class="toast hidden"></div>
 
-  <audio id="audio-player" preload="auto"></audio>
-  <audio id="audio-player-b" preload="auto"></audio>
+  <audio id="audio-player" preload="auto" crossorigin="anonymous"></audio>
+  <audio id="audio-player-b" preload="auto" crossorigin="anonymous"></audio>
   <script src="crossfade-engine.js"></script>
+  <script src="loudness-normalizer.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
