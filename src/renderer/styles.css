@@ -1782,11 +1782,24 @@ html, body {
   display: block;
 }
 .context-sub-item {
+  display: flex;
+  align-items: center;
   padding: 8px 14px;
   font-size: 13px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.playlist-toggle-icon {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--text-subdued);
+}
+.playlist-toggle-icon.is-added {
+  background: var(--accent);
+  color: #000;
+  border-radius: 50%;
+  padding: 2px;
 }
 
 /* ═══════ Responsive ═══════ */

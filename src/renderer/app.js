@@ -807,25 +807,36 @@
     bindArtistLinks(container);
   }
 
-  function buildPlaylistSectionHtml() {
-    if (state.playlists.length >= 5) {
-      const subItems = state.playlists.map(p =>
-        `<div class="context-menu-item context-sub-item" data-action="add-to-playlist" data-pid="${p.id}">${escapeHtml(p.name)}</div>`
-      ).join('');
-      return `
-        <div class="context-menu-divider"></div>
-        <div class="context-menu-item context-menu-has-sub" data-action="none">
-          <span>Add to playlist</span>
-          <span class="sub-arrow">▸</span>
-          <div class="context-submenu">${subItems}</div>
-        </div>`;
-    } else if (state.playlists.length) {
-      const inlineItems = state.playlists.map(p =>
-        `<div class="context-menu-item" data-action="add-to-playlist" data-pid="${p.id}">${escapeHtml(p.name)}</div>`
-      ).join('');
-      return '<div class="context-menu-divider"></div>' + inlineItems;
+  function buildPlaylistSectionHtml(track) {
+    if (!state.playlists.length) return '';
+    const alreadyIn = (pl) => pl.tracks.some(t => t.id === track.id);
+    const checkIcon = '<svg class="playlist-toggle-icon is-added" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+    const plusIcon = '<svg class="playlist-toggle-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+    const subItems = state.playlists.map(p =>
+      `<div class="context-menu-item context-sub-item" data-action="toggle-playlist" data-pid="${p.id}"><span>${escapeHtml(p.name)}</span>${alreadyIn(p) ? checkIcon : plusIcon}</div>`
+    ).join('');
+    return `
+      <div class="context-menu-divider"></div>
+      <div class="context-menu-item context-menu-has-sub" data-action="none">
+        <span>Add to playlist</span>
+        <svg class="sub-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        <div class="context-submenu">${subItems}</div>
+      </div>`;
+  }
+
+  function handleTogglePlaylist(playlistId, track) {
+    const pl = state.playlists.find(p => p.id === playlistId);
+    if (!pl) return;
+    const idx = pl.tracks.findIndex(t => t.id === track.id);
+    if (idx !== -1) {
+      pl.tracks.splice(idx, 1);
+      showToast(`Removed from "${pl.name}"`);
+    } else {
+      pl.tracks.push(track);
+      showToast(`Added to "${pl.name}"`);
     }
-    return '';
+    saveState();
+    renderPlaylists();
   }
 
   function positionContextMenu(menu) {
@@ -834,8 +845,7 @@
     if (rect.right > window.innerWidth) menu.style.left = (window.innerWidth - rect.width - 8) + 'px';
     if (rect.bottom > window.innerHeight) menu.style.top = (window.innerHeight - rect.height - 8) + 'px';
 
-    const subMenuEl = menu.querySelector('.context-submenu');
-    if (subMenuEl) {
+    menu.querySelectorAll('.context-submenu').forEach(subMenuEl => {
       const parentItem = subMenuEl.parentElement;
       parentItem.addEventListener('mouseenter', () => {
         const subRect = subMenuEl.getBoundingClientRect();
@@ -849,7 +859,7 @@
           subMenuEl.style.bottom = '0';
         }
       });
-    }
+    });
   }
 
   function showContextMenu(e, track, { hideAddQueue = false, hidePlayNext = false } = {}) {
@@ -860,7 +870,7 @@
     menu.style.left = e.clientX + 'px';
     menu.style.top = e.clientY + 'px';
 
-    const playlistSection = buildPlaylistSectionHtml();
+    const playlistSection = buildPlaylistSectionHtml(track);
     const addQueueHtml = hideAddQueue ? '' : '<div class="context-menu-item" data-action="add-queue">Add to Queue</div>';
     const playNextHtml = hidePlayNext ? '' : '<div class="context-menu-item" data-action="play-next">Play Next</div>';
 
@@ -906,8 +916,8 @@
           break;
         }
         case 'like': toggleLike(track); break;
-        case 'add-to-playlist':
-          addToPlaylist(item.dataset.pid, track);
+        case 'toggle-playlist':
+          handleTogglePlaylist(item.dataset.pid, track);
           break;
         case 'share':
           navigator.clipboard.writeText(track.url || `https://music.youtube.com/watch?v=${track.id}`);
@@ -1873,19 +1883,6 @@
         showPlaylistDetail(playlist, false);
       }
     }
-  }
-
-  function addToPlaylist(playlistId, track) {
-    const pl = state.playlists.find(p => p.id === playlistId);
-    if (!pl) return;
-    if (pl.tracks.some(t => t.id === track.id)) {
-      showToast('Already in this playlist');
-      return;
-    }
-    pl.tracks.push(track);
-    saveState();
-    renderPlaylists();
-    showToast(`Added to "${pl.name}"`);
   }
 
   function renderPlaylists() {
@@ -4772,12 +4769,13 @@
   function showVideoContextMenu(e, video) {
     removeContextMenu();
     const v = normalizeVideo(video);
+    const track = makeTrackFromVideo(video);
     const menu = document.createElement('div');
     menu.className = 'context-menu';
     menu.style.left = e.clientX + 'px';
     menu.style.top = e.clientY + 'px';
 
-    const playlistSection = buildPlaylistSectionHtml();
+    const playlistSection = buildPlaylistSectionHtml(track);
 
     menu.innerHTML = `
       <div class="context-menu-item" data-action="watch-video">Play Video</div>
@@ -4791,8 +4789,6 @@
     `;
 
     positionContextMenu(menu);
-
-    const track = makeTrackFromVideo(video);
 
     menu.addEventListener('click', (ev) => {
       const item = ev.target.closest('[data-action]');
@@ -4812,8 +4808,8 @@
         case 'add-queue':
           handleAddToQueue(track);
           break;
-        case 'add-to-playlist':
-          addToPlaylist(item.dataset.pid, track);
+        case 'toggle-playlist':
+          handleTogglePlaylist(item.dataset.pid, track);
           break;
         case 'share':
           navigator.clipboard.writeText(`https://music.youtube.com/watch?v=${v.id}`);
