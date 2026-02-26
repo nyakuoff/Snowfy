@@ -4360,6 +4360,81 @@
     }
   });
 
+  // Now playing context menu
+  $('.np-track-info').addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    const track = state.queue[state.queueIndex];
+    if (!track) return;
+    removeContextMenu();
+    const isLiked = state.likedSongs.some(t => t.id === track.id);
+    const menu = document.createElement('div');
+    menu.className = 'context-menu';
+    menu.style.left = e.clientX + 'px';
+    menu.style.top = e.clientY + 'px';
+
+    const playlistSection = buildPlaylistSectionHtml();
+
+    menu.innerHTML = `
+      <div class="context-menu-item" data-action="start-radio">Start Radio</div>
+      <div class="context-menu-item" data-action="watch-video">Watch Video</div>
+      <div class="context-menu-item" data-action="like">${isLiked ? 'Unlike' : 'Like'}</div>
+      ${playlistSection}
+      ${track.artistId ? '<div class="context-menu-divider"></div><div class="context-menu-item" data-action="go-to-artist">Go to Artist</div>' : ''}
+      <div class="context-menu-divider"></div>
+      <div class="context-menu-item" data-action="share">Copy Link</div>
+    `;
+
+    positionContextMenu(menu);
+
+    menu.addEventListener('click', async (ev) => {
+      const item = ev.target.closest('[data-action]');
+      if (!item) return;
+      const action = item.dataset.action;
+      if (action === 'none') return;
+      switch (action) {
+        case 'start-radio': {
+          const upNexts = await window.snowify.getUpNexts(track.id);
+          if (upNexts.length) {
+            const alreadyPlaying = state.isPlaying && state.queue[state.queueIndex]?.id === track.id;
+            if (alreadyPlaying) {
+              const remaining = upNexts.filter(t => t.id !== track.id);
+              state.queue = [track, ...remaining];
+              state.originalQueue = [...state.queue];
+              state.queueIndex = 0;
+              renderQueue();
+              showToast('Radio started');
+            } else {
+              playFromList([track, ...upNexts.filter(t => t.id !== track.id)], 0);
+              showToast('Radio started');
+            }
+          } else {
+            showToast('Could not start radio');
+          }
+          break;
+        }
+        case 'watch-video':
+          openVideoPlayer(track.id, track.title, track.artist);
+          break;
+        case 'like': toggleLike(track); break;
+        case 'add-to-playlist':
+          addToPlaylist(item.dataset.pid, track);
+          break;
+        case 'go-to-artist':
+          openArtistPage(track.artistId);
+          break;
+        case 'share':
+          navigator.clipboard.writeText(track.url || `https://music.youtube.com/watch?v=${track.id}`);
+          showToast('Link copied to clipboard');
+          break;
+      }
+      removeContextMenu();
+    });
+
+    setTimeout(() => {
+      document.addEventListener('click', removeContextMenu, { once: true });
+    }, 10);
+  });
+
   // Open maximized view on thumbnail click
   $('#np-thumbnail').addEventListener('click', () => {
     if (_maxNPOpen) {
