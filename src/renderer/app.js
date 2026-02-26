@@ -1048,10 +1048,6 @@
       }
 
       audio.volume = state.volume * engine.VOLUME_SCALE;
-      const directUrl = await window.snowify.getStreamUrl(track.url, state.audioQuality);
-      audio.src = directUrl;
-      audio.volume = state.volume * VOLUME_SCALE;
-      audio.load();
       await audio.play();
       state.isPlaying = true;
       state.isLoading = false;
@@ -1063,6 +1059,8 @@
       // Reset preload flags so next track gets preloaded
       engine.resetPreloadFlag();
     } catch (err) {
+      // Ignore AbortError — happens when play() is interrupted by a new load (e.g. rapid skip)
+      if (err && err.name === 'AbortError') return;
       console.error('Playback error:', err);
       const msg = typeof err === 'string' ? err : (err.message || 'unknown error');
       showToast('Playback failed: ' + msg);
@@ -4583,7 +4581,6 @@
       if (result.audioUrl) {
         // Split streams: sync a separate audio element
         _videoAudio = new Audio(result.audioUrl);
-        _videoAudio.volume = state.volume * engine.VOLUME_SCALE;
         _videoAudio.volume = state.volume * VOLUME_SCALE;
 
         videoPlayer.muted = true;
