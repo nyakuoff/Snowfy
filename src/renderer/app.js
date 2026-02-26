@@ -1487,6 +1487,8 @@
     progressFill.style.width = pct + '%';
     $('#time-current').textContent = formatTime(src.currentTime);
     $('#time-total').textContent = formatTime(src.duration);
+    // Sync maximized NP progress bar
+    if (_maxNPOpen && typeof updateMaxNPProgress === 'function') updateMaxNPProgress();
   }
 
   let isDraggingProgress = false;
@@ -1532,6 +1534,16 @@
     const isMuted = state.volume === 0;
     $('.vol-icon', btnVolume).classList.toggle('hidden', isMuted);
     $('.vol-mute-icon', btnVolume).classList.toggle('hidden', !isMuted);
+    // Sync maximized NP volume
+    const maxVolFill = $('#max-np-vol-fill');
+    const maxVolBtn = $('#max-np-vol-btn');
+    if (maxVolFill) maxVolFill.style.width = (state.volume * 100) + '%';
+    if (maxVolBtn) {
+      const mi = $('.vol-icon', maxVolBtn);
+      const mm = $('.vol-mute-icon', maxVolBtn);
+      if (mi) mi.classList.toggle('hidden', isMuted);
+      if (mm) mm.classList.toggle('hidden', !isMuted);
+    }
     saveState();
   }
 
@@ -1604,6 +1616,8 @@
     if (window.snowify.updateThumbar) window.snowify.updateThumbar(state.isPlaying);
     // Sync play-all buttons on visible views
     syncViewPlayAllBtns();
+    // Sync maximized NP controls if open
+    if (_maxNPOpen && typeof syncMaxNPControls === 'function') syncMaxNPControls();
   }
 
   function syncViewPlayAllBtns() {
@@ -1707,6 +1721,9 @@
       const wasLiked = toggleLike(track);
       if (wasLiked) spawnHeartParticles(npLike);
       else spawnBrokenHeart(npLike);
+      // Sync maximized NP like state
+      const liked = state.likedSongs.some(t => t.id === track.id);
+      $('#max-np-like').classList.toggle('liked', liked);
     }
   });
 
@@ -3979,10 +3996,440 @@
     _lastActiveLyricIdx = -1;
     if (_lyricsVisible) {
       fetchAndShowLyrics(track);
+    } else if (_maxNPOpen && _maxNPLyricsVisible) {
+      // Lyrics panel not open but maximized view with lyrics is — fetch for it
+      fetchMaxNPLyrics(track);
     } else {
       _lyricsTrackId = null;
     }
+    updateMaxNP(track);
   }
+
+  // ─── Maximized Now Playing Screen ───
+
+  const maxNP = $('#max-np');
+  const maxNPBgA = $('#max-np-bg-a');
+  const maxNPBgB = $('#max-np-bg-b');
+  let _maxNPBgFront = 'a'; // tracks which layer is currently visible
+  const maxNPArt = $('#max-np-art');
+  const maxNPTitle = $('#max-np-title');
+  const maxNPArtist = $('#max-np-artist');
+  const maxNPLike = $('#max-np-like');
+  const maxNPLyricsToggle = $('#max-np-lyrics-toggle');
+  const maxNPRight = $('#max-np-right');
+  const maxNPLyrics = $('#max-np-lyrics');
+  const maxNPPlay = $('#max-np-play');
+  const maxNPShuffleBtn = $('#max-np-shuffle');
+  const maxNPRepeatBtn = $('#max-np-repeat');
+  const maxNPProgressBar = $('#max-np-progress-bar');
+  const maxNPProgressFill = $('#max-np-progress-fill');
+  const maxNPTimeCurrent = $('#max-np-time-current');
+  const maxNPTimeTotal = $('#max-np-time-total');
+  let _maxNPOpen = false;
+  let _maxNPLyricsVisible = false;
+  let _maxLyricsSyncInterval = null;
+  let _maxLastActiveLyricIdx = -1;
+
+  function openMaxNP() {
+    const current = state.queue[state.queueIndex];
+    if (!current) return;
+    _maxNPOpen = true;
+    maxNP.classList.remove('hidden');
+
+    // Set initial background on both layers (no crossfade on open)
+    const thumbUrl = current.thumbnail ? current.thumbnail.replace(/=w\d+-h\d+/, '=w800-h800') : '';
+    const bgUrl = `url('${thumbUrl || current.thumbnail}')`;
+    maxNPBgA.style.backgroundImage = bgUrl;
+    maxNPBgB.style.backgroundImage = bgUrl;
+    maxNPBgA.style.opacity = '1';
+    maxNPBgB.style.opacity = '0';
+    _maxNPBgFront = 'a';
+
+    // Force reflow before adding visible class for transition
+    void maxNP.offsetHeight;
+    maxNP.classList.add('visible');
+    updateMaxNP(current);
+    syncMaxNPControls();
+    // Sync volume slider
+    $('#max-np-vol-fill').style.width = (state.volume * 100) + '%';
+    const isMuted = state.volume === 0;
+    const mvb = $('#max-np-vol-btn');
+    $('.vol-icon', mvb).classList.toggle('hidden', isMuted);
+    $('.vol-mute-icon', mvb).classList.toggle('hidden', !isMuted);
+    renderMaxNPLyrics();
+    startMaxLyricsSync();
+  }
+
+  function closeMaxNP() {
+    _maxNPOpen = false;
+    maxNP.classList.remove('visible');
+    stopMaxLyricsSync();
+    setTimeout(() => {
+      if (!_maxNPOpen) maxNP.classList.add('hidden');
+    }, 500);
+  }
+
+  function updateMaxNP(track) {
+    if (!track || !_maxNPOpen) return;
+    const thumbUrl = track.thumbnail ? track.thumbnail.replace(/=w\d+-h\d+/, '=w800-h800') : '';
+    const imgSrc = thumbUrl || track.thumbnail;
+    maxNPArt.src = imgSrc;
+
+    // Crossfade background: new image on layer B (front), fade it in on top of A
+    // Layer A always stays visible underneath — no transparent gap
+    const bgUrl = `url('${imgSrc}')`;
+    if (_maxNPBgFront === 'a') {
+      // A is current — put new on B, fade B in
+      maxNPBgB.style.transition = 'none';
+      maxNPBgB.style.opacity = '0';
+      maxNPBgB.style.backgroundImage = bgUrl;
+      void maxNPBgB.offsetHeight; // force reflow
+      maxNPBgB.style.transition = 'opacity 1.2s ease';
+      maxNPBgB.style.opacity = '1';
+      _maxNPBgFront = 'b';
+      // After transition, copy to A so it's ready for next swap
+      setTimeout(() => {
+        if (_maxNPBgFront === 'b') {
+          maxNPBgA.style.backgroundImage = bgUrl;
+        }
+      }, 1300);
+    } else {
+      // B is current — put new on B again after copying B→A
+      maxNPBgA.style.backgroundImage = maxNPBgB.style.backgroundImage;
+      maxNPBgB.style.transition = 'none';
+      maxNPBgB.style.opacity = '0';
+      maxNPBgB.style.backgroundImage = bgUrl;
+      void maxNPBgB.offsetHeight;
+      maxNPBgB.style.transition = 'opacity 1.2s ease';
+      maxNPBgB.style.opacity = '1';
+      // A stays at _maxNPBgFront = 'b' — always use B as the fade-in layer
+    }
+
+    maxNPTitle.textContent = track.title;
+    maxNPArtist.innerHTML = renderArtistLinks(track);
+    bindArtistLinks(maxNPArtist);
+
+    const isLiked = state.likedSongs.some(t => t.id === track.id);
+    maxNPLike.classList.toggle('liked', isLiked);
+  }
+
+  function renderMaxNPLyrics() {
+    if (!_maxNPOpen) return;
+    _maxLastActiveLyricIdx = -1;
+
+    if (_lyricsLines.length > 0) {
+      // Synced lyrics available — render them
+      maxNPLyrics.innerHTML = `<div class="lyrics-content synced">
+        <div class="lyrics-spacer"></div>
+        ${_lyricsLines.map((line, i) =>
+          `<div class="lyrics-line" data-index="${i}" data-time="${line.time}">${escapeHtml(line.text)}</div>`
+        ).join('')}
+        <div class="lyrics-spacer"></div>
+      </div>`;
+
+      // Click to seek
+      maxNPLyrics.querySelectorAll('.lyrics-line').forEach(el => {
+        el.addEventListener('click', () => {
+          const time = parseFloat(el.dataset.time);
+          if (audio.duration && !isNaN(time)) {
+            audio.currentTime = time;
+            if (audio.paused) {
+              audio.play();
+              state.isPlaying = true;
+              updatePlayButton();
+            }
+          }
+        });
+      });
+    } else if (_lyricsTrackId) {
+      // Lyrics were fetched but none are synced — check lyricsBody for plain
+      const plainContent = lyricsBody.querySelector('.lyrics-content.plain');
+      if (plainContent) {
+        maxNPLyrics.innerHTML = plainContent.outerHTML;
+      } else {
+        const emptyOrLoading = lyricsBody.querySelector('.lyrics-empty, .lyrics-loading');
+        maxNPLyrics.innerHTML = emptyOrLoading ? emptyOrLoading.outerHTML :
+          `<div class="lyrics-empty"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg><p style="color:rgba(255,255,255,0.4)">No lyrics found</p></div>`;
+      }
+    } else {
+      // Lyrics not fetched yet — trigger fetch
+      const current = state.queue[state.queueIndex];
+      if (current) {
+        maxNPLyrics.innerHTML = '<div class="lyrics-loading"><div class="spinner"></div><p>Searching for lyrics\u2026</p></div>';
+        fetchMaxNPLyrics(current);
+      }
+    }
+  }
+
+  async function fetchMaxNPLyrics(track) {
+    if (!track) return;
+
+    // If the regular lyrics panel already has data for this track, reuse it
+    if (_lyricsTrackId === track.id && _lyricsLines.length > 0) {
+      renderMaxNPLyrics();
+      return;
+    }
+
+    // Otherwise fetch fresh — we piggyback on the main fetch so data is shared
+    _lyricsTrackId = track.id;
+    _lyricsLines = [];
+    _lastActiveLyricIdx = -1;
+
+    maxNPLyrics.innerHTML = '<div class="lyrics-loading"><div class="spinner"></div><p>Searching for lyrics\u2026</p></div>';
+
+    let durationSec = null;
+    if (audio.duration && !isNaN(audio.duration) && audio.duration > 0) {
+      durationSec = Math.round(audio.duration);
+    } else if (track.duration) {
+      const parts = track.duration.split(':');
+      if (parts.length === 2) durationSec = parseInt(parts[0]) * 60 + parseInt(parts[1]);
+    }
+
+    try {
+      const result = await window.snowify.getLyrics(track.title, track.artist, track.album || '', durationSec);
+      if (_lyricsTrackId !== track.id) return;
+
+      if (!result) {
+        maxNPLyrics.innerHTML = `<div class="lyrics-empty"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg><p style="color:rgba(255,255,255,0.4)">No lyrics found</p></div>`;
+        return;
+      }
+
+      if (result.synced) {
+        _lyricsLines = parseLRC(result.synced);
+        // Also update the regular lyrics panel if it's open
+        if (_lyricsVisible) renderSyncedLyrics();
+        renderMaxNPLyrics();
+        startMaxLyricsSync();
+      } else if (result.plain) {
+        const lines = result.plain.split('\n').filter(l => l.trim());
+        maxNPLyrics.innerHTML = `<div class="lyrics-content plain">
+          <div class="lyrics-spacer"></div>
+          ${lines.map(l => `<div class="lyrics-line plain-line">${escapeHtml(l)}</div>`).join('')}
+          <div class="lyrics-spacer"></div>
+        </div>`;
+        // Also update the regular lyrics panel if open
+        if (_lyricsVisible) renderPlainLyrics(result.plain);
+      } else {
+        maxNPLyrics.innerHTML = `<div class="lyrics-empty"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg><p style="color:rgba(255,255,255,0.4)">No lyrics found</p></div>`;
+      }
+    } catch (err) {
+      console.error('Max NP lyrics error:', err);
+      maxNPLyrics.innerHTML = '<div class="lyrics-empty"><p style="color:rgba(255,255,255,0.4)">Failed to load lyrics</p></div>';
+    }
+  }
+
+  function startMaxLyricsSync() {
+    stopMaxLyricsSync();
+    if (!_lyricsLines.length || !_maxNPOpen || !_maxNPLyricsVisible) return;
+    _maxLyricsSyncInterval = setInterval(() => {
+      if (audio.paused) return;
+      syncMaxLyrics();
+    }, 100);
+  }
+
+  function stopMaxLyricsSync() {
+    if (_maxLyricsSyncInterval) {
+      clearInterval(_maxLyricsSyncInterval);
+      _maxLyricsSyncInterval = null;
+    }
+  }
+
+  function syncMaxLyrics() {
+    if (!_lyricsLines.length || !_maxNPOpen || !_maxNPLyricsVisible) return;
+    const ct = engine.getActiveSource().currentTime;
+
+    let activeIdx = -1;
+    for (let i = _lyricsLines.length - 1; i >= 0; i--) {
+      if (ct >= _lyricsLines[i].time) {
+        activeIdx = i;
+        break;
+      }
+    }
+
+    if (activeIdx === _maxLastActiveLyricIdx) return;
+    _maxLastActiveLyricIdx = activeIdx;
+
+    const allLines = maxNPLyrics.querySelectorAll('.lyrics-line');
+    allLines.forEach((el, i) => {
+      el.classList.toggle('active', i === activeIdx);
+      const dist = Math.abs(i - activeIdx);
+      if (activeIdx < 0) {
+        el.style.opacity = '0.35';
+      } else if (dist === 0) {
+        el.style.opacity = '1';
+      } else if (dist <= 2) {
+        el.style.opacity = '0.45';
+      } else {
+        el.style.opacity = '0.2';
+      }
+    });
+
+    if (activeIdx >= 0) {
+      const activeLine = allLines[activeIdx];
+      if (activeLine) {
+        activeLine.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  }
+
+  // Toggle lyrics sidebar in maximized view
+  maxNPLyricsToggle.addEventListener('click', () => {
+    _maxNPLyricsVisible = !_maxNPLyricsVisible;
+    maxNPRight.classList.toggle('hidden', !_maxNPLyricsVisible);
+    maxNPRight.classList.toggle('visible', _maxNPLyricsVisible);
+    maxNPLyricsToggle.classList.toggle('active', _maxNPLyricsVisible);
+    if (_maxNPLyricsVisible) {
+      renderMaxNPLyrics();
+      startMaxLyricsSync();
+    } else {
+      stopMaxLyricsSync();
+    }
+  });
+
+  // Like button in maximized view
+  maxNPLike.addEventListener('click', () => {
+    const current = state.queue[state.queueIndex];
+    if (!current) return;
+    toggleLike(current);
+    const isLiked = state.likedSongs.some(t => t.id === current.id);
+    maxNPLike.classList.toggle('liked', isLiked);
+    // Sync with the main np bar
+    $('#np-like').classList.toggle('liked', isLiked);
+  });
+
+  // Volume control in maximized view
+  const maxNPVolSlider = $('#max-np-vol-slider');
+  const maxNPVolBtn = $('#max-np-vol-btn');
+  let _maxNPDraggingVol = false;
+
+  maxNPVolSlider.addEventListener('mousedown', (e) => {
+    _maxNPDraggingVol = true;
+    maxNPUpdateVolume(e);
+  });
+  document.addEventListener('mousemove', (e) => {
+    if (_maxNPDraggingVol) maxNPUpdateVolume(e);
+  });
+  document.addEventListener('mouseup', () => { _maxNPDraggingVol = false; });
+
+  function maxNPUpdateVolume(e) {
+    const rect = maxNPVolSlider.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    setVolume(pct);
+  }
+
+  maxNPVolBtn.addEventListener('click', () => {
+    if (state.volume > 0) {
+      prevVolume = state.volume;
+      setVolume(0);
+    } else {
+      setVolume(prevVolume);
+    }
+  });
+
+  // Open maximized view on thumbnail click
+  $('#np-thumbnail').addEventListener('click', () => {
+    if (_maxNPOpen) {
+      closeMaxNP();
+    } else {
+      openMaxNP();
+    }
+  });
+
+  // Close button
+  $('#max-np-x').addEventListener('click', closeMaxNP);
+
+  // Progress bar seek in maximized view
+  let _maxNPDragging = false;
+  maxNPProgressBar.addEventListener('mousedown', (e) => {
+    _maxNPDragging = true;
+    maxNPSeekTo(e);
+  });
+  document.addEventListener('mousemove', (e) => {
+    if (_maxNPDragging) maxNPSeekTo(e);
+  });
+  document.addEventListener('mouseup', () => { _maxNPDragging = false; });
+
+  function maxNPSeekTo(e) {
+    if (engine.isInProgress()) { engine.instantComplete(); audio = engine.getActiveAudio(); }
+    const rect = maxNPProgressBar.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    if (audio.duration) {
+      const newTime = pct * audio.duration;
+      const remaining = audio.duration - newTime;
+      if (remaining > state.crossfade) engine.resetTrigger();
+      else engine.markTriggered();
+      audio.currentTime = newTime;
+      maxNPProgressFill.style.width = (pct * 100) + '%';
+      progressFill.style.width = (pct * 100) + '%';
+    }
+  }
+
+  function updateMaxNPProgress() {
+    if (!_maxNPOpen) return;
+    const src = engine.getActiveSource();
+    if (!src.duration) return;
+    const pct = (src.currentTime / src.duration) * 100;
+    maxNPProgressFill.style.width = pct + '%';
+    maxNPTimeCurrent.textContent = formatTime(src.currentTime);
+    maxNPTimeTotal.textContent = formatTime(src.duration);
+  }
+
+  // Playback controls in maximized view
+  $('#max-np-prev').addEventListener('click', playPrev);
+  $('#max-np-next').addEventListener('click', playNext);
+  maxNPPlay.addEventListener('click', togglePlay);
+
+  maxNPShuffleBtn.addEventListener('click', () => {
+    btnShuffle.click(); // trigger the main shuffle handler
+    syncMaxNPControls();
+  });
+
+  maxNPRepeatBtn.addEventListener('click', () => {
+    btnRepeat.click(); // trigger the main repeat handler
+    syncMaxNPControls();
+  });
+
+  function syncMaxNPControls() {
+    // Play/pause icons
+    const playIcon = maxNPPlay.querySelector('.icon-play');
+    const pauseIcon = maxNPPlay.querySelector('.icon-pause');
+    if (state.isPlaying) {
+      playIcon.classList.add('hidden');
+      pauseIcon.classList.remove('hidden');
+    } else {
+      playIcon.classList.remove('hidden');
+      pauseIcon.classList.add('hidden');
+    }
+    // Shuffle
+    maxNPShuffleBtn.classList.toggle('active', state.shuffle);
+    // Repeat
+    maxNPRepeatBtn.classList.toggle('active', state.repeat !== 'off');
+    if (state.repeat === 'one') {
+      maxNPRepeatBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/><text x="12" y="15" text-anchor="middle" font-size="8" fill="currentColor" stroke="none" font-weight="bold">1</text></svg>`;
+    } else if (state.repeat === 'all') {
+      maxNPRepeatBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/><text x="12" y="15" text-anchor="middle" font-size="7" fill="currentColor" stroke="none" font-weight="bold">∞</text></svg>`;
+    } else {
+      maxNPRepeatBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>`;
+    }
+  }
+
+  // Close on Escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && _maxNPOpen) {
+      closeMaxNP();
+      e.stopPropagation();
+    }
+  });
+
+  // When lyrics are fetched by the regular panel, update max NP too
+  const _origFetchAndShowLyrics = fetchAndShowLyrics;
+  fetchAndShowLyrics = async function(track) {
+    await _origFetchAndShowLyrics(track);
+    if (_maxNPOpen) {
+      renderMaxNPLyrics();
+      if (_maxNPLyricsVisible) startMaxLyricsSync();
+    }
+  };
 
   // ─── Video Player ───
 

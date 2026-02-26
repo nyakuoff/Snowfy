@@ -718,6 +718,77 @@
     </div>
   </div>
 
+  <!-- ═══════ Maximized Now Playing Screen ═══════ -->
+  <div id="max-np" class="max-np hidden">
+    <div class="max-np-bg max-np-bg-a" id="max-np-bg-a"></div>
+    <div class="max-np-bg max-np-bg-b" id="max-np-bg-b"></div>
+    <div class="max-np-topbar">
+      <button class="icon-btn max-np-x" id="max-np-x" title="Close">
+        <svg width="20" height="20" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="max-np-body">
+      <div class="max-np-left">
+        <img class="max-np-art" id="max-np-art" src="" alt="" />
+        <div class="max-np-info">
+          <span class="max-np-title" id="max-np-title">—</span>
+          <span class="max-np-artist" id="max-np-artist">—</span>
+        </div>
+        <div class="max-np-controls">
+          <button class="icon-btn max-np-btn" id="max-np-shuffle" title="Shuffle">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/><path d="M4 20L9 15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M4 4L9 9" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M15 15L21 21" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M21 3L14 10" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M16 3H21V8" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 16V21H16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="icon-btn max-np-btn" id="max-np-prev" title="Previous">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6V6zm3.5 6l8.5 6V6l-8.5 6z"/></svg>
+          </button>
+          <button class="max-np-play-btn" id="max-np-play" title="Play">
+            <svg class="icon-play" width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
+            <svg class="icon-pause hidden" width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>
+          </button>
+          <button class="icon-btn max-np-btn" id="max-np-next" title="Next">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2V6zM6 18l8.5-6L6 6v12z"/></svg>
+          </button>
+          <button class="icon-btn max-np-btn" id="max-np-repeat" title="Repeat">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
+          </button>
+        </div>
+        <div class="max-np-progress">
+          <span class="max-np-time" id="max-np-time-current">0:00</span>
+          <div class="max-np-progress-bar" id="max-np-progress-bar">
+            <div class="max-np-progress-fill" id="max-np-progress-fill">
+              <div class="max-np-progress-handle"></div>
+            </div>
+          </div>
+          <span class="max-np-time" id="max-np-time-total">0:00</span>
+        </div>
+        <div class="max-np-actions">
+          <button class="icon-btn max-np-like" id="max-np-like" title="Like">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+          </button>
+          <button class="icon-btn max-np-lyrics-toggle" id="max-np-lyrics-toggle" title="Toggle Lyrics">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 15 15"><path fill="currentColor" d="M12.1 2.952a2.988 2.988 0 0 0-5.11 1.965l3.142 3.142A2.988 2.988 0 0 0 12.1 2.952m-7.428 5.3L2.55 10.377a1 1 0 0 0 0 1.414l.707.707a1 1 0 0 0 1.414 0l2.121-2.121l2.122-2.122l-2.121-2.121Zm.741 2.087l-.707-.707l2.087-2.084l.707.707Z"/></svg>
+          </button>
+          <div class="max-np-volume">
+            <button class="icon-btn max-np-vol-btn" id="max-np-vol-btn" title="Volume">
+              <svg class="vol-icon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3z"/><path class="vol-wave" d="M14 9.64a3.99 3.99 0 010 4.72M16.5 7a7.97 7.97 0 010 10" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+              <svg class="vol-mute-icon hidden" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3z"/><path d="M16 9l6 6M22 9l-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+            </button>
+            <div class="max-np-vol-slider" id="max-np-vol-slider">
+              <div class="max-np-vol-fill" id="max-np-vol-fill">
+                <div class="max-np-vol-handle"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="max-np-right hidden" id="max-np-right">
+        <div class="max-np-lyrics" id="max-np-lyrics">
+          <div class="lyrics-empty"><p>Play a song to see lyrics</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ═══════ Input Modal ═══════ -->
   <div id="input-modal" class="modal-overlay hidden">
     <div class="modal-box">

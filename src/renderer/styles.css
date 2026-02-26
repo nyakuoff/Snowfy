@@ -213,6 +213,9 @@
 .no-effects .lyrics-line.active {
   text-shadow: none !important;
 }
+.no-effects .max-np-lyrics .lyrics-line.active {
+  text-shadow: none !important;
+}
 .no-effects .play-all-btn,
 .no-effects .play-all-btn:hover,
 .no-effects .btn-primary,
@@ -1216,6 +1219,7 @@ html, body {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
   transition: transform var(--transition);
   display: block;
+  cursor: pointer;
 }
 #np-thumbnail:hover {
   transform: scale(1.05);
@@ -3417,6 +3421,379 @@ html, body {
 .lyrics-loading .spinner {
   width: 28px;
   height: 28px;
+}
+
+/* ═══════ Maximized Now Playing Screen ═══════ */
+.max-np {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #000;
+  transform: translateY(100%);
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.max-np.visible {
+  transform: translateY(0);
+}
+.max-np.hidden {
+  pointer-events: none;
+}
+
+/* Blurred background — dual layers for crossfade */
+.max-np-bg {
+  position: absolute;
+  inset: -60px;
+  background-size: cover;
+  background-position: center;
+  filter: blur(90px) saturate(1.8) brightness(0.3);
+}
+.max-np-bg-a {
+  z-index: -2;
+  opacity: 1;
+}
+.max-np-bg-b {
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 1.2s ease;
+}
+
+/* Top bar with close button */
+.max-np-topbar {
+  position: absolute;
+  top: calc(var(--titlebar-height) + 12px);
+  right: 24px;
+  z-index: 5;
+}
+.max-np-x {
+  color: rgba(255, 255, 255, 0.65);
+  transition: color var(--transition), transform var(--transition);
+}
+.max-np-x:hover {
+  color: #fff;
+  transform: scale(1.15);
+}
+
+/* Body — holds left (art + info) and right (lyrics) */
+.max-np-body {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 60px;
+  padding: calc(var(--titlebar-height) + 24px) 80px 40px;
+  overflow: hidden;
+  z-index: 1;
+}
+
+/* ── Left column: artwork + info ── */
+.max-np-left {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+  flex-shrink: 0;
+  max-width: 420px;
+  width: 100%;
+}
+
+.max-np-art {
+  width: 340px;
+  height: 340px;
+  border-radius: 12px;
+  object-fit: cover;
+  box-shadow: 0 16px 64px rgba(0, 0, 0, 0.55);
+  transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.audio-playing .max-np-art {
+  animation: max-np-pulse 4s ease-in-out infinite;
+}
+@keyframes max-np-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
+.max-np-info {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  overflow: hidden;
+}
+.max-np-title {
+  font-size: 26px;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.max-np-artist {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.65);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.max-np-artist a {
+  color: rgba(255, 255, 255, 0.65);
+  text-decoration: none;
+  transition: color var(--transition);
+}
+.max-np-artist a:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+
+/* Playback controls row */
+.max-np-controls {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+/* Progress bar */
+.max-np-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 380px;
+}
+.max-np-time {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+  min-width: 38px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.max-np-progress-bar {
+  flex: 1;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+  cursor: pointer;
+  position: relative;
+  transition: height var(--transition);
+}
+.max-np-progress-bar:hover {
+  height: 6px;
+}
+.max-np-progress-fill {
+  height: 100%;
+  background: #fff;
+  border-radius: 2px;
+  width: 0%;
+  position: relative;
+  pointer-events: none;
+}
+.max-np-progress-handle {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  position: absolute;
+  top: 50%;
+  right: -6px;
+  transform: translateY(-50%) scale(0);
+  transition: transform var(--transition-bounce), opacity 0.15s;
+  opacity: 0;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+.max-np-progress-bar:hover .max-np-progress-handle {
+  opacity: 1;
+  transform: translateY(-50%) scale(1);
+}
+.max-np-btn {
+  color: rgba(255, 255, 255, 0.65);
+  transition: color var(--transition), transform var(--transition-bounce);
+}
+.max-np-btn:hover {
+  color: #fff;
+  transform: scale(1.12);
+}
+.max-np-btn.active {
+  color: var(--accent);
+}
+.max-np-play-btn {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: #fff;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform var(--transition-bounce), background var(--transition);
+  color: #000;
+}
+.max-np-play-btn svg {
+  fill: #000;
+}
+.max-np-play-btn:hover {
+  transform: scale(1.08);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+/* Action buttons row (like, lyrics toggle, volume) */
+.max-np-actions {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+.max-np-actions .icon-btn {
+  color: rgba(255, 255, 255, 0.65);
+  transition: color var(--transition), transform var(--transition-bounce);
+}
+.max-np-actions .icon-btn:hover {
+  color: #fff;
+  transform: scale(1.15);
+}
+
+/* Volume in maximized NP */
+.max-np-volume {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.max-np-vol-btn {
+  color: rgba(255, 255, 255, 0.65) !important;
+}
+.max-np-vol-slider {
+  width: 90px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+  cursor: pointer;
+  position: relative;
+  transition: height var(--transition);
+}
+.max-np-vol-slider:hover {
+  height: 6px;
+}
+.max-np-vol-fill {
+  height: 100%;
+  background: #fff;
+  border-radius: 2px;
+  width: 70%;
+  position: relative;
+  pointer-events: none;
+}
+.max-np-vol-handle {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  position: absolute;
+  top: 50%;
+  right: -6px;
+  transform: translateY(-50%) scale(0);
+  opacity: 0;
+  transition: transform var(--transition-bounce), opacity 0.15s;
+  pointer-events: none;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.4);
+}
+.max-np-vol-slider:hover .max-np-vol-handle {
+  opacity: 1;
+  transform: translateY(-50%) scale(1);
+}
+.max-np-like.liked svg {
+  fill: var(--accent);
+  stroke: var(--accent);
+}
+.max-np-lyrics-toggle.active {
+  color: var(--accent) !important;
+}
+
+/* ── Right column: lyrics ── */
+.max-np-right {
+  flex: 1;
+  max-width: 500px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+  transform: translateX(20px);
+}
+.max-np-right.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.max-np-lyrics {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 12px 40px;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.max-np-lyrics::-webkit-scrollbar { display: none; }
+
+.max-np-lyrics .lyrics-content {
+  max-width: 460px;
+}
+
+.max-np-lyrics .lyrics-line {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.7;
+  padding: 6px 12px;
+  color: #fff;
+  opacity: 0.2;
+  transition: opacity 0.4s ease, transform 0.4s ease, text-shadow 0.4s ease;
+  cursor: pointer;
+  border-radius: 8px;
+  user-select: text;
+  text-align: center;
+  width: 100%;
+}
+.max-np-lyrics .lyrics-line:hover {
+  opacity: 0.55 !important;
+}
+.max-np-lyrics .lyrics-line.active {
+  opacity: 1 !important;
+  transform: scale(1.04);
+  color: var(--accent);
+  text-shadow:
+    0 0 20px var(--accent-glow),
+    0 0 40px var(--accent-glow),
+    0 0 60px rgba(170, 85, 230, 0.1);
+}
+
+.max-np-lyrics .lyrics-content.plain .lyrics-line {
+  font-size: 20px;
+  font-weight: 600;
+  opacity: 0.85;
+  cursor: default;
+  line-height: 1.8;
+}
+.max-np-lyrics .lyrics-content.plain .lyrics-line:hover {
+  opacity: 0.85 !important;
+}
+
+/* When lyrics hidden, center the left column */
+.max-np-body:has(.max-np-right.hidden) .max-np-left {
+  max-width: 480px;
+}
+.max-np-body:has(.max-np-right.hidden) .max-np-art {
+  width: 400px;
+  height: 400px;
+}
+.max-np-body:has(.max-np-right.hidden) .max-np-title {
+  font-size: 30px;
+}
+.max-np-body:has(.max-np-right.hidden) .max-np-artist {
+  font-size: 18px;
 }
 
 /* ═══════ Video Player Overlay ═══════ */
