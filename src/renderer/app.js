@@ -1171,6 +1171,11 @@
     }
     updatePlayButton();
     updateTrackHighlight();
+
+    // Pre-fill queue with autoplay recommendations if no upcoming tracks
+    if (state.autoplay && state.queueIndex >= state.queue.length - 1) {
+      smartQueueFill({ silent: true });
+    }
   }
 
   function prefetchNextTrack() {
@@ -1263,11 +1268,9 @@
     renderQueue();
   }
 
-  async function smartQueueFill() {
+  async function smartQueueFill({ silent = false } = {}) {
     const current = state.queue[state.queueIndex];
     if (!current) return;
-
-    showToast('Autoplay: finding similar songs...');
 
     try {
       const queueIds = new Set(state.queue.map(t => t.id));
@@ -1294,9 +1297,10 @@
       }
 
       if (!pool.length) {
-        showToast('Autoplay: no similar songs found');
-        state.isPlaying = false;
-        updatePlayButton();
+        if (!silent) {
+          state.isPlaying = false;
+          updatePlayButton();
+        }
         return;
       }
 
@@ -1317,17 +1321,22 @@
       const newTracks = pool.slice(0, Math.max(maxAdd, 10));
 
       state.queue.push(...newTracks);
-      state.queueIndex++;
-      state.playingPlaylistId = null;
-      updatePlaylistHighlight();
-      playTrack(state.queue[state.queueIndex]);
-      renderQueue();
-      showToast(`Autoplay: added ${newTracks.length} songs`);
+
+      if (silent) {
+        renderQueue();
+      } else {
+        state.queueIndex++;
+        state.playingPlaylistId = null;
+        updatePlaylistHighlight();
+        playTrack(state.queue[state.queueIndex]);
+        renderQueue();
+      }
     } catch (err) {
       console.error('Autoplay error:', err);
-      showToast('Autoplay failed');
-      state.isPlaying = false;
-      updatePlayButton();
+      if (!silent) {
+        state.isPlaying = false;
+        updatePlayButton();
+      }
     }
   }
 
