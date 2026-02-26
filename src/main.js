@@ -5,6 +5,8 @@ const os = require('os');
 const { execFile } = require('child_process');
 const { autoUpdater } = require('electron-updater');
 
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+
 let mainWindow;
 let ytmusic;
 let _currentCountry = '';
@@ -226,7 +228,8 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
+      sandbox: false,
+      backgroundThrottling: false
     },
     icon: nativeImage.createFromPath(path.join(__dirname, '..', 'assets', 'logo.ico'))
   });
