@@ -2554,6 +2554,13 @@ html, body {
   border-color: var(--red);
   box-shadow: 0 4px 16px rgba(240, 96, 112, 0.25);
 }
+.btn-setting-action.btn-discord { border-color: #5865F2; color: #5865F2; }
+.btn-setting-action.btn-discord:hover {
+  background: #5865F2;
+  color: #fff;
+  border-color: #5865F2;
+  box-shadow: 0 4px 16px rgba(88, 101, 242, 0.3);
+}
 
 /* Custom theme row */
 .custom-theme-row {
