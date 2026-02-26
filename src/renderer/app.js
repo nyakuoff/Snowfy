@@ -845,9 +845,15 @@
     if (rect.right > window.innerWidth) menu.style.left = (window.innerWidth - rect.width - 8) + 'px';
     if (rect.bottom > window.innerHeight) menu.style.top = (window.innerHeight - rect.height - 8) + 'px';
 
-    menu.querySelectorAll('.context-submenu').forEach(subMenuEl => {
-      const parentItem = subMenuEl.parentElement;
-      parentItem.addEventListener('mouseenter', () => {
+    menu.querySelectorAll('.context-menu-has-sub').forEach(parentItem => {
+      const subMenuEl = parentItem.querySelector('.context-submenu');
+      let hideTimeout = null;
+      const show = () => {
+        clearTimeout(hideTimeout);
+        menu.querySelectorAll('.context-menu-has-sub.submenu-open').forEach(el => {
+          if (el !== parentItem) el.classList.remove('submenu-open');
+        });
+        parentItem.classList.add('submenu-open');
         const subRect = subMenuEl.getBoundingClientRect();
         if (subRect.right > window.innerWidth) {
           subMenuEl.classList.add('open-left');
@@ -858,7 +864,14 @@
           subMenuEl.style.top = 'auto';
           subMenuEl.style.bottom = '0';
         }
-      });
+      };
+      const hide = () => {
+        hideTimeout = setTimeout(() => parentItem.classList.remove('submenu-open'), 250);
+      };
+      parentItem.addEventListener('mouseenter', show);
+      parentItem.addEventListener('mouseleave', hide);
+      subMenuEl.addEventListener('mouseenter', () => clearTimeout(hideTimeout));
+      subMenuEl.addEventListener('mouseleave', hide);
     });
   }
 

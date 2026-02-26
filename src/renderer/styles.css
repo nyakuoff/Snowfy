@@ -1778,7 +1778,7 @@ html, body {
   left: auto;
   right: 100%;
 }
-.context-menu-has-sub:hover > .context-submenu {
+.context-menu-has-sub.submenu-open > .context-submenu {
   display: block;
 }
 .context-sub-item {
