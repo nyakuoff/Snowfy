@@ -629,7 +629,7 @@
       <div class="search-artist-card${i === 0 ? ' search-artist-top' : ''}" data-artist-id="${escapeHtml(a.artistId)}">
         <img class="search-artist-avatar" src="${escapeHtml(a.thumbnail || '')}" alt="" loading="lazy" />
         <div class="search-artist-name" title="${escapeHtml(a.name)}">${escapeHtml(a.name)}</div>
-        <div class="search-artist-label">Artist</div>
+        <div class="search-artist-label">${I18n.t('artist.type')}</div>
       </div>
     `).join('');
     section.appendChild(scroll);
@@ -764,10 +764,10 @@
     let html = `
       <div class="track-list-header${modifier}">
         <span>#</span>
-        <span>Title</span>
-        <span>Artist</span>
+        <span>${I18n.t('trackList.title')}</span>
+        <span>${I18n.t('trackList.artist')}</span>
         <span></span>
-        ${showPlays ? '<span style="text-align:right">Plays</span>' : ''}
+        ${showPlays ? `<span style="text-align:right">${I18n.t('trackList.plays')}</span>` : ''}
       </div>`;
 
     tracks.forEach((track, i) => {
