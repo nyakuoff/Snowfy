@@ -10,7 +10,9 @@ app.commandLine.appendSwitch('disable-renderer-backgrounding');
 // ─── i18n for main process dialogs ───
 const _mainTranslations = {};
 function loadMainTranslations() {
-  const locale = app.getLocale().startsWith('es') ? 'es' : 'en';
+  const supported = ['en','es','pt','fr','de','ja','ko','zh','it','tr','ru','hi'];
+  const lang = app.getLocale().split('-')[0].toLowerCase();
+  const locale = supported.includes(lang) ? lang : 'en';
   const filePath = path.join(__dirname, 'locales', locale + '.json');
   try {
     _mainTranslations.data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));

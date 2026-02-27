@@ -4,8 +4,15 @@ window.I18n = (function () {
   let _fallback = {};
   const _listeners = [];
 
+  const SUPPORTED = ['en','es','pt','fr','de','ja','ko','zh','it','tr','ru','hi'];
+
+  function resolveLocale(locale) {
+    const lang = locale.split('-')[0].toLowerCase();
+    return SUPPORTED.includes(lang) ? lang : 'en';
+  }
+
   async function init(locale) {
-    _locale = locale.startsWith('es') ? 'es' : 'en';
+    _locale = resolveLocale(locale);
     const override = localStorage.getItem('snowify_locale');
     if (override) _locale = override;
 
