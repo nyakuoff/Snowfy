@@ -3176,6 +3176,24 @@ html, body {
   color: var(--text-secondary);
 }
 
+/* Stacked changelog version sections */
+.changelog-version-divider {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+.changelog-version-heading {
+  font-size: 1.15em;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 2px 0;
+}
+.changelog-version-date {
+  font-size: 0.82em;
+  color: var(--text-secondary);
+  margin: 0 0 12px 0;
+}
+
 /* ═══════ Input Modal ═══════ */
 .modal-overlay {
   position: fixed;

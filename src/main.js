@@ -2098,6 +2098,36 @@ ipcMain.handle('app:getChangelog', async (_event, version) => {
   }
 });
 
+// Fetch recent releases (up to 20) for stacked changelogs
+ipcMain.handle('app:getRecentReleases', async () => {
+  try {
+    const url = 'https://api.github.com/repos/nyakuoff/Snowify/releases?per_page=20';
+    const https = require('https');
+    const body = await new Promise((resolve, reject) => {
+      const req = https.get(url, { headers: { 'User-Agent': 'Snowify', 'Accept': 'application/vnd.github+json' } }, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          if (res.statusCode === 200) resolve(data);
+          else reject(new Error(`GitHub API ${res.statusCode}`));
+        });
+      });
+      req.on('error', reject);
+      req.setTimeout(10000, () => { req.destroy(); reject(new Error('Timeout')); });
+    });
+    return JSON.parse(body).map(r => ({
+      version: r.tag_name?.replace(/^v/, '') || '',
+      name: r.name || r.tag_name || '',
+      body: r.body || '',
+      date: r.published_at || r.created_at || '',
+      url: r.html_url || ''
+    }));
+  } catch (err) {
+    console.error('Failed to fetch releases:', err);
+    return [];
+  }
+});
+
 ipcMain.handle('updater:check', async () => {
   if (_isDev) {
     sendUpdateStatus('error', { message: 'Auto-update is not available in dev mode' });

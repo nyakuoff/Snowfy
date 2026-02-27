@@ -6090,7 +6090,24 @@
       return html;
     }
 
-    async function openChangelog(version) {
+    /** Compare two semver strings. Returns -1, 0, or 1. */
+    function compareSemver(a, b) {
+      const pa = a.split('.').map(Number);
+      const pb = b.split('.').map(Number);
+      for (let i = 0; i < 3; i++) {
+        const va = pa[i] || 0, vb = pb[i] || 0;
+        if (va < vb) return -1;
+        if (va > vb) return 1;
+      }
+      return 0;
+    }
+
+    /**
+     * Open the changelog modal.
+     * @param {string} version - The current/target version
+     * @param {string} [sinceVersion] - If provided, show all releases after this version up to `version`
+     */
+    async function openChangelog(version, sinceVersion) {
       const modal = $('#changelog-modal');
       const body = $('#changelog-body');
       const meta = $('#changelog-meta');
@@ -6101,20 +6118,68 @@
       title.textContent = "What's New";
       modal.classList.remove('hidden');
 
-      const data = await window.snowify.getChangelog(version);
+      // Multi-version mode: fetch releases between sinceVersion and version
+      if (sinceVersion && compareSemver(sinceVersion, version) < 0) {
+        const releases = await window.snowify.getRecentReleases();
+        // Filter to versions > sinceVersion and <= version, sort descending (newest first)
+        const missed = releases
+          .filter(r => r.version && compareSemver(r.version, sinceVersion) > 0 && compareSemver(r.version, version) <= 0)
+          .sort((a, b) => compareSemver(b.version, a.version));
 
-      if (!data || !data.body) {
-        body.innerHTML = '<div class="changelog-empty"><p>No changelog available for this version.</p></div>';
-        meta.textContent = `v${version}`;
-        return;
-      }
+        if (missed.length === 0) {
+          // Fallback to single version
+          return openChangelog(version);
+        }
 
-      title.textContent = data.name || `What's New in v${data.version}`;
-      if (data.date) {
-        const d = new Date(data.date);
-        meta.textContent = `Released ${d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}`;
+        title.textContent = missed.length === 1
+          ? (missed[0].name || `What's New in v${version}`)
+          : "What's New";
+        meta.textContent = missed.length > 1
+          ? `${missed.length} updates since v${sinceVersion}`
+          : '';
+
+        let html = '';
+        missed.forEach((rel, i) => {
+          if (missed.length > 1) {
+            const dateStr = rel.date
+              ? new Date(rel.date).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+              : '';
+            html += `<div class="changelog-version-section${i > 0 ? ' changelog-version-divider' : ''}">`;
+            html += `<h2 class="changelog-version-heading">${escapeHtml(rel.name || `v${rel.version}`)}</h2>`;
+            if (dateStr) html += `<p class="changelog-version-date">${dateStr}</p>`;
+          }
+          html += renderMarkdown(rel.body || '');
+          if (missed.length > 1) html += '</div>';
+        });
+
+        body.innerHTML = html;
+
+        // Single version — set proper title/meta
+        if (missed.length === 1) {
+          const rel = missed[0];
+          title.textContent = rel.name || `What's New in v${rel.version}`;
+          if (rel.date) {
+            const d = new Date(rel.date);
+            meta.textContent = `Released ${d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}`;
+          }
+        }
+      } else {
+        // Single version mode (direct open from button)
+        const data = await window.snowify.getChangelog(version);
+
+        if (!data || !data.body) {
+          body.innerHTML = '<div class="changelog-empty"><p>No changelog available for this version.</p></div>';
+          meta.textContent = `v${version}`;
+          return;
+        }
+
+        title.textContent = data.name || `What's New in v${data.version}`;
+        if (data.date) {
+          const d = new Date(data.date);
+          meta.textContent = `Released ${d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}`;
+        }
+        body.innerHTML = renderMarkdown(data.body);
       }
-      body.innerHTML = renderMarkdown(data.body);
 
       // Make links open externally
       body.querySelectorAll('a[href]').forEach(a => {
@@ -6149,8 +6214,8 @@
       const version = await window.snowify.getVersion();
       const lastSeenVersion = localStorage.getItem('snowify_last_changelog_version');
       if (lastSeenVersion && lastSeenVersion !== version) {
-        // Version changed — show changelog after a short delay
-        setTimeout(() => openChangelog(version), 1500);
+        // Version changed — show stacked changelog for all missed versions
+        setTimeout(() => openChangelog(version, lastSeenVersion), 1500);
       }
       localStorage.setItem('snowify_last_changelog_version', version);
     })();
